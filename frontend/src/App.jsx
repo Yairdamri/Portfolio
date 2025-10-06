@@ -394,7 +394,7 @@ export default function App() {
       </main>
 
       <footer>
-        <small>Served by Nginx • Proxied to FastAPI at /v1</small>
+        <small>Develop by Yair Damri</small>
       </footer>
     </div>
   )

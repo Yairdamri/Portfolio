@@ -1,137 +1,83 @@
 pipeline {
   agent any
   options {
-    ansiColor('xterm')
     timestamps()
     disableConcurrentBuilds()
   }
   environment {
-    IMAGE = 'workout-app'
-    TAG = "${BRANCH_NAME}-${BUILD_NUMBER}"
-    // Provide these as Jenkins credentials or env vars
-    AWS_ACCOUNT_ID = '273809175099'
-    AWS_REGION = 'ap-south-1'
-    ECR_REPOSITORY = '273809175099.dkr.ecr.ap-south-1.amazonaws.com/dev_protfolio'
     DOCKER_BUILDKIT = '1'
+    IMAGE_BACKEND = 'workout-backend'
+    IMAGE_FRONTEND = 'workout-frontend'
+    TAG = "${BRANCH_NAME}-${BUILD_NUMBER}"
+    // Ensure predictable compose network name: ${COMPOSE_PROJECT_NAME}_default
+    COMPOSE_PROJECT_NAME = "ci-${BUILD_NUMBER}"
   }
   stages {
-    stage('Source') {
+    stage('Checkout') {
       steps {
         cleanWs()
         checkout scm
-        sh 'git rev-parse --short HEAD'
       }
     }
 
     stage('Build') {
       steps {
-        sh 'python -V || true'
+        sh 'docker compose -f docker-compose.yaml build'
       }
     }
 
     stage('Unit Tests') {
       steps {
-        sh 'docker run --rm -v "$PWD:/app" -w /app python:3.11 bash -lc "pip install -r requirements.txt && mkdir -p reports && pytest -q --maxfail=1 --disable-warnings --junitxml=reports/unit-tests.xml"'
-      }
-    }
-
-    stage('Package Docker Image') {
-      steps {
-        sh 'docker build -t ${IMAGE}:${TAG} .'
-      }
-    }
-
-    stage('Integration: Up (docker-compose)') {
-      when { expression { return env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') } }
-      steps {
-        sh 'docker-compose -f docker-compose.yaml up -d --build'
-        sh 'echo "Waiting for API to be healthy..."'
-        sh 'for i in {1..60}; do curl -fsS http://localhost/health && break || sleep 2; done'
-      }
-    }
-
-    stage('Integration: API Tests') {
-      when { expression { return env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') } }
-      steps {
-        sh 'chmod +x scripts/integration_test.sh && BASE="http://localhost" bash scripts/integration_test.sh'
-      }
-      post {
-        always {
-          sh 'docker-compose -f docker-compose.yaml logs nginx || true'
-        }
-      }
-    }
-
-    stage('Integration: Down') {
-      when { expression { return env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') } }
-      steps {
-        sh 'docker-compose -f docker-compose.yaml down -v || true'
-      }
-    }
-
-    stage('Tag Release') {
-      when { branch 'main' }
-      steps {
         sh '''
-          git config user.name "jenkins"
-          git config user.email "jenkins@local"
-          git tag v${BUILD_NUMBER} || true
-          git push origin v${BUILD_NUMBER} || true
+          set -eu
+          echo "Building lightweight test image..."
+          docker build --target test -t backend-test:ci .
+          echo "Running unit tests..."
+          mkdir -p reports
+          docker run --rm -v "$PWD/reports:/app/reports" backend-test:ci
         '''
       }
     }
 
-    stage('Publish to ECR') {
-      when { branch 'main' }
+    stage('Package') {
       steps {
         sh '''
-          if [ -z "$AWS_ACCOUNT_ID" ] || [ -z "$AWS_REGION" ] || [ -z "$ECR_REPOSITORY" ]; then
-            echo "ECR env missing; skipping publish"; exit 0; fi
-         ECR_REGISTRY=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
-         aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin $ECR_REGISTRY
-          docker tag ${IMAGE}:${TAG} $ECR_REGISTRY/${ECR_REPOSITORY}:${TAG}
-          docker push $ECR_REGISTRY/${ECR_REPOSITORY}:${TAG}
+          set -eu
+          echo "Packaging Docker images as artifacts..."
+          # Build and tag images explicitly (simple and reproducible)
+          docker build -t ${IMAGE_BACKEND}:${TAG} .
+          docker build -t ${IMAGE_FRONTEND}:${TAG} ./frontend
+          # Save images to tar files for portability
+          mkdir -p artifacts
+          docker save ${IMAGE_BACKEND}:${TAG} -o artifacts/${IMAGE_BACKEND}-${TAG}.tar
+          docker save ${IMAGE_FRONTEND}:${TAG} -o artifacts/${IMAGE_FRONTEND}-${TAG}.tar
         '''
       }
     }
 
-    stage('Deploy (GitOps)') {
-      when { branch 'main' }
-      steps {
-        sh '''
-          if [ -n "$GITOPS_REPO" ]; then
-            echo "Update GitOps repo to ${TAG} (placeholder)"
-            # Implement according to your GitOps flow (Flux/Argo CD)
-          else
-            echo "GITOPS_REPO not set; skipping deploy"
-          fi
-        '''
-      }
-    }
+    stage('Integration Test') {
+  when { expression { return env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') } }
+  steps {
+    sh '''
+      set -eu
+      echo "Compose up (backend + frontend + db)..."
+      docker compose -f docker-compose.yaml up -d --build
+
+      echo "Waiting for health inside shared network (frontend reachable from Jenkins)..."
+      for i in $(seq 1 60); do docker run --rm --network cicd-network curlimages/curl:8.10.1 -fsS http://frontend/health && break || sleep 2; done
+
+      echo "Running integration tests inside backend container (via nginx)..."
+      docker compose exec -T backend sh -lc 'apk add --no-cache bash curl coreutils sed grep >/dev/null 2>&1 || true; chmod +x /app/scripts/integration_test.sh; BASE="http://frontend" bash /app/scripts/integration_test.sh'
+    '''
   }
+}
   post {
-    success {
-      script {
-        def msg = "✅ ${env.JOB_NAME} #${env.BUILD_NUMBER} (${env.BRANCH_NAME}) succeeded. Tag: ${env.TAG}"
-        if (env.SLACK_CHANNEL) { slackSend channel: env.SLACK_CHANNEL, color: 'good', message: msg } else { slackSend color: 'good', message: msg }
-      }
-    }
-    failure {
-      script {
-        def msg = "❌ ${env.JOB_NAME} #${env.BUILD_NUMBER} (${env.BRANCH_NAME}) failed. See ${env.BUILD_URL}"
-        if (env.SLACK_CHANNEL) { slackSend channel: env.SLACK_CHANNEL, color: 'danger', message: msg } else { slackSend color: 'danger', message: msg }
-      }
-    }
-    unstable {
-      script {
-        def msg = "⚠️ ${env.JOB_NAME} #${env.BUILD_NUMBER} (${env.BRANCH_NAME}) unstable. See ${env.BUILD_URL}"
-        if (env.SLACK_CHANNEL) { slackSend channel: env.SLACK_CHANNEL, color: 'warning', message: msg } else { slackSend color: 'warning', message: msg }
-      }
-    }
     always {
-      archiveArtifacts artifacts: 'scripts/**, docker-compose.yaml', onlyIfSuccessful: false
-      junit 'reports/**/*.xml'
-      sh 'docker system prune -f || true'
+      // Clean only resources created by this compose project
+      sh 'docker compose -f docker-compose.yaml down -v --remove-orphans || true'
+      // Optionally clean dangling images only (safe):
+      // sh 'docker image prune -f || true'
+      archiveArtifacts artifacts: 'artifacts/*.tar', onlyIfSuccessful: false
       cleanWs()
     }
   }
