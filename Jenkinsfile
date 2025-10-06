@@ -78,7 +78,7 @@ pipeline {
           docker compose exec -T backend sh -lc '
             apk add --no-cache python3 curl coreutils sed grep >/dev/null 2>&1 || true
             chmod +x /app/scripts/integration_test.py
-            BASE="http://frontend" python3 /app/scripts/integration_test.py --base http://frontend
+            BASE="http://frontend" python3 /app/scripts/integration_test.py --base http://frontend --skip-build
           '
         '''
       }

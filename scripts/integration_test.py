@@ -157,7 +157,7 @@ def main():
     parser.add_argument('--compose-file', default='docker-compose.yaml', help='Path to docker-compose file')
     parser.add_argument('--base', default='http://localhost', help='Base URL (use http://localhost to go via nginx reverse proxy)')
     parser.add_argument('--project-dir', default='.', help='Directory containing the compose file')
-    parser.add_argument('--skip-build', action='suppress', help=argparse.SUPPRESS)  # kept simple per requirements
+    parser.add_argument('--skip-build', action='store_true', help=argparse.SUPPRESS)  # fixed
     args = parser.parse_args()
 
     project_dir = os.path.abspath(args.project_dir)
@@ -165,8 +165,8 @@ def main():
     skip_compose = os.getenv("SKIP_COMPOSE") == "1"
 
     try:
-        # Bring up environment unless skipped (e.g., CI handles compose externally)
-        if not skip_compose:
+        # Bring up environment unless skipped
+        if not args.skip_build and not skip_compose:
             print("Bringing up compose stack...")
             sh(f'docker compose -f "{compose_path}" up -d --build', cwd=project_dir)
 
@@ -178,7 +178,7 @@ def main():
         print("Integration tests OK")
     finally:
         # Clean up regardless of success/failure (only if we brought it up)
-        if not skip_compose:
+        if not args.skip_build and not skip_compose:
             print("Tearing down compose stack...")
             sh(f'docker compose -f "{compose_path}" down -v --remove-orphans || true', cwd=project_dir, check=False)
 
