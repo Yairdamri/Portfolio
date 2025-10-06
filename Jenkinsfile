@@ -6,9 +6,9 @@ pipeline {
   }
   environment {
     DOCKER_BUILDKIT = '1'
-    IMAGE_BACKEND = 'workout-backend'
-    IMAGE_FRONTEND = 'workout-frontend'
-    TAG = "${BRANCH_NAME}-${BUILD_NUMBER}"
+    IMAGE_BACKEND   = 'workout-backend'
+    IMAGE_FRONTEND  = 'workout-frontend'
+    TAG             = "${BRANCH_NAME}-${BUILD_NUMBER}"
     // Ensure predictable compose network name: ${COMPOSE_PROJECT_NAME}_default
     COMPOSE_PROJECT_NAME = "ci-${BUILD_NUMBER}"
   }
@@ -62,14 +62,23 @@ pipeline {
       steps {
         sh '''
           set -eu
+          echo "Ensure cicd-network exists..."
+          docker network inspect cicd-network >/dev/null 2>&1 || docker network create cicd-network
+
           echo "Compose up (backend + frontend + db)..."
           docker compose -f docker-compose.yaml up -d --build
 
           echo "Waiting for health inside shared network (frontend reachable from Jenkins)..."
-          for i in $(seq 1 60); do docker run --rm --network cicd-network curlimages/curl:8.10.1 -fsS http://frontend/health && break || sleep 2; done
+          for i in $(seq 1 60); do
+            docker run --rm --network cicd-network curlimages/curl:8.10.1 -fsS http://frontend/health && break || sleep 2
+          done
 
-          echo "Running integration tests inside backend container (via nginx)..."
-          docker compose exec -T backend sh -lc 'apk add --no-cache bash curl coreutils sed grep >/dev/null 2>&1 || true; chmod +x /app/scripts/integration_test.sh; BASE="http://frontend" bash /app/scripts/integration_test.sh'
+          echo "Running integration tests inside backend container..."
+          docker compose exec -T backend sh -lc '
+            apk add --no-cache python3 curl coreutils sed grep >/dev/null 2>&1 || true
+            chmod +x /app/scripts/integration_test.py
+            BASE="http://frontend" python3 /app/scripts/integration_test.py --base http://frontend
+          '
         '''
       }
     }
