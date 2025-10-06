@@ -56,21 +56,24 @@ pipeline {
     }
 
     stage('Integration Test') {
-  when { expression { return env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') } }
-  steps {
-    sh '''
-      set -eu
-      echo "Compose up (backend + frontend + db)..."
-      docker compose -f docker-compose.yaml up -d --build
+      when {
+        expression { return env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') }
+      }
+      steps {
+        sh '''
+          set -eu
+          echo "Compose up (backend + frontend + db)..."
+          docker compose -f docker-compose.yaml up -d --build
 
-      echo "Waiting for health inside shared network (frontend reachable from Jenkins)..."
-      for i in $(seq 1 60); do docker run --rm --network cicd-network curlimages/curl:8.10.1 -fsS http://frontend/health && break || sleep 2; done
+          echo "Waiting for health inside shared network (frontend reachable from Jenkins)..."
+          for i in $(seq 1 60); do docker run --rm --network cicd-network curlimages/curl:8.10.1 -fsS http://frontend/health && break || sleep 2; done
 
-      echo "Running integration tests inside backend container (via nginx)..."
-      docker compose exec -T backend sh -lc 'apk add --no-cache bash curl coreutils sed grep >/dev/null 2>&1 || true; chmod +x /app/scripts/integration_test.sh; BASE="http://frontend" bash /app/scripts/integration_test.sh'
-    '''
+          echo "Running integration tests inside backend container (via nginx)..."
+          docker compose exec -T backend sh -lc 'apk add --no-cache bash curl coreutils sed grep >/dev/null 2>&1 || true; chmod +x /app/scripts/integration_test.sh; BASE="http://frontend" bash /app/scripts/integration_test.sh'
+        '''
+      }
+    }
   }
-}
   post {
     always {
       // Clean only resources created by this compose project
