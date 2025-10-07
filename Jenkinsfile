@@ -128,8 +128,8 @@ pipeline {
           def newTag = "v${BUILD_NUMBER}"
           echo "Tagging repository with ${newTag}"
           sh """
-            git config user.email "ci@example.com"
-            git config user.name "CI Bot"
+            git config user.email "yairdamri48@gmail.com"
+            git config user.name "yairdamri48"
             git tag ${newTag}
             git push origin ${newTag}
           """
