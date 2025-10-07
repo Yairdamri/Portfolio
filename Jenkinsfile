@@ -169,11 +169,23 @@ pipeline {
   }
 
   post {
-    always {
-      echo "Final cleanup..."
-      sh 'docker compose -f docker-compose.yaml down -v --remove-orphans || true'
-      archiveArtifacts artifacts: 'artifacts/*.tar', onlyIfSuccessful: false
-      cleanWs()
-    }
+  always {
+    echo "Final cleanup..."
+    sh 'docker compose -f docker-compose.yaml down -v --remove-orphans || true'
+    archiveArtifacts artifacts: 'artifacts/*.tar', onlyIfSuccessful: false
+    cleanWs()
   }
+  success {
+    slackSend(channel: '#builds', message: "✅ Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' succeeded. ${env.BUILD_URL}")
+  }
+  failure {
+    slackSend(channel: '#builds', message: "❌ Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' failed. ${env.BUILD_URL}")
+  }
+  unstable {
+    slackSend(channel: '#builds', message: "⚠️ Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' is unstable. ${env.BUILD_URL}")
+  }
+  aborted {
+    slackSend(channel: '#builds', message: "🚫 Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' was aborted. ${env.BUILD_URL}")
+  }
+}
 }
