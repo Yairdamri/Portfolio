@@ -30,7 +30,7 @@ pipeline {
         sh '''
           set -eu
           echo "Building lightweight test image..."
-          docker build --target test -t backend-test:ci .
+          docker build -f Dockerfile.test -t backend-test:ci .
         '''
       }
     }
