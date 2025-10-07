@@ -159,9 +159,13 @@ pipeline {
 
             docker tag ${IMAGE_BACKEND}:${TAG} ${ECR_URI}:backend-${TAG}
             docker tag ${IMAGE_FRONTEND}:${TAG} ${ECR_URI}:frontend-${TAG}
+            docker tag ${IMAGE_BACKEND}:${TAG} ${ECR_URI}:backend-latest
+            docker tag ${IMAGE_FRONTEND}:${TAG} ${ECR_URI}:frontend-latest
 
             docker push ${ECR_URI}:backend-${TAG}
             docker push ${ECR_URI}:frontend-${TAG}
+            docker push ${ECR_URI}:backend-latest
+            docker push ${ECR_URI}:frontend-latest
           '''
         }
       }
