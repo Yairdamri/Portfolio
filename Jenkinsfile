@@ -1,16 +1,19 @@
 pipeline {
   agent any
+
   options {
     timestamps()
     disableConcurrentBuilds()
   }
+
   environment {
-    DOCKER_BUILDKIT = '1'
-    IMAGE_BACKEND   = 'workout-backend'
-    IMAGE_FRONTEND  = 'workout-frontend'
-    TAG             = "${BRANCH_NAME}-${BUILD_NUMBER}"
-    COMPOSE_PROJECT_NAME = "ci-${BUILD_NUMBER}"
+    DOCKER_BUILDKIT       = '1'
+    IMAGE_BACKEND         = 'workout-backend'
+    IMAGE_FRONTEND        = 'workout-frontend'
+    TAG                   = "${BRANCH_NAME}-${BUILD_NUMBER}"
+    COMPOSE_PROJECT_NAME  = "ci-${BUILD_NUMBER}"
   }
+
   stages {
     stage('Checkout') {
       steps {
@@ -55,6 +58,7 @@ pipeline {
         '''
       }
     }
+
     stage('Integration Test') {
       when {
         expression { env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') }
@@ -62,8 +66,11 @@ pipeline {
       steps {
         sh '''
           set -eu
+          echo "Starting integration test environment..."
           docker network inspect cicd-network >/dev/null 2>&1 || docker network create cicd-network
           docker compose -f docker-compose.yaml up -d
+
+          echo "Running integration tests inside backend container..."
           docker compose exec -T backend sh -lc '
             python3 --version >/dev/null 2>&1 || apk add --no-cache python3 >/dev/null
             python3 /app/scripts/test_integration_api.py --base http://frontend --skip-build
@@ -73,24 +80,17 @@ pipeline {
       post {
         always {
           sh '''
-            docker compose -f docker-compose.yaml down -v --remove-orphans >/dev/null 2>&1 || true
-          '''
-        }
-      }
-    }
-
-
-      post {
-        always {
-          sh '''
+            echo "Cleaning up integration test environment..."
             docker compose -f docker-compose.yaml down -v --remove-orphans >/dev/null 2>&1 || true
           '''
         }
       }
     }
   }
+
   post {
     always {
+      echo "Final cleanup..."
       sh 'docker compose -f docker-compose.yaml down -v --remove-orphans || true'
       archiveArtifacts artifacts: 'artifacts/*.tar', onlyIfSuccessful: false
       cleanWs()
