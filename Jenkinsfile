@@ -120,21 +120,24 @@ pipeline {
     }
 
     stage('Tag Release') {
-  when { branch 'main' }
-  steps {
-    withCredentials([usernamePassword(credentialsId: 'gitlab-git-credentials',
-                                      usernameVariable: 'GIT_USER',
-                                      passwordVariable: 'GIT_TOKEN')]) {
-      sh """
-        git config user.email "yairdamri48@gmail.com"
-        git config user.name "yairdamri48"
-        git tag v${BUILD_NUMBER}
-        git push https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/workout-gen v${BUILD_NUMBER}
-      """
+      when {
+        branch 'main'
+      }
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: 'gitlab-git-credentials',
+          usernameVariable: 'GIT_USER',
+          passwordVariable: 'GIT_TOKEN'
+        )]) {
+          sh """
+            git config user.email "yairdamri48@gmail.com"
+            git config user.name "yairdamri48"
+            git tag v${BUILD_NUMBER}
+            git push https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/workout-gen v${BUILD_NUMBER}
+          """
+        }
+      }
     }
-  }
-}
-
 
     stage('Publish') {
       when {
@@ -147,27 +150,22 @@ pipeline {
         ]]) {
           sh '''
             set -eu
-            export PATH="$HOME/.local/bin:$PATH"
-            if ! command -v aws >/dev/null 2>&1; then
-              echo "AWS CLI not found. Installing..."
-              python3 -m ensurepip --upgrade >/dev/null 2>&1 || true
-              python3 -m pip install --user --upgrade awscli >/dev/null
-            fi
-            if ! command -v aws >/dev/null 2>&1; then
-              echo "Failed to install AWS CLI" >&2
-              exit 1
-            fi
-
-            echo "Authenticating with AWS ECR..."
-            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
-
-            echo "Tagging images for ECR..."
-            docker tag ${IMAGE_BACKEND}:${TAG} ${ECR_URI}:backend-${TAG}
-            docker tag ${IMAGE_FRONTEND}:${TAG} ${ECR_URI}:frontend-${TAG}
-
-            echo "Pushing images to ECR..."
-            docker push ${ECR_URI}:backend-${TAG}
-            docker push ${ECR_URI}:frontend-${TAG}
+            docker run --rm \
+              -e AWS_ACCESS_KEY_ID \
+              -e AWS_SECRET_ACCESS_KEY \
+              -e AWS_SESSION_TOKEN \
+              -e AWS_REGION=${AWS_REGION} \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "$PWD":"$PWD" -w "$PWD" \
+              amazon/aws-cli \
+              sh -c "
+                aws ecr get-login-password --region ${AWS_REGION} \
+                  | docker login --username AWS --password-stdin ${ECR_REGISTRY} &&
+                docker tag ${IMAGE_BACKEND}:${TAG} ${ECR_URI}:backend-${TAG} &&
+                docker tag ${IMAGE_FRONTEND}:${TAG} ${ECR_URI}:frontend-${TAG} &&
+                docker push ${ECR_URI}:backend-${TAG} &&
+                docker push ${ECR_URI}:frontend-${TAG}
+              "
           '''
         }
       }
