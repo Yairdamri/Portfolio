@@ -55,38 +55,31 @@ pipeline {
         '''
       }
     }
-
     stage('Integration Test') {
       when {
-        expression { return env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') }
-      }
-      agent {
-        docker {
-          image 'docker:24.0.2-dind'
-          args '--privileged'
-        }
+        expression { env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') }
       }
       steps {
         sh '''
           set -eu
-          echo "Waiting for Docker daemon..."
-          for i in $(seq 1 20); do
-            if docker info >/dev/null 2>&1; then
-              break
-            fi
-            sleep 2
-          done
-
-          echo "Installing Python runtime for integration script..."
-          apk add --no-cache python3 >/dev/null
-
-          echo "Preparing external network for compose..."
-          docker network create cicd-network >/dev/null 2>&1 || true
-
-          echo "Running integration script via docker-in-docker..."
-          python3 scripts/integration_test_api.py --base http://localhost
+          docker network inspect cicd-network >/dev/null 2>&1 || docker network create cicd-network
+          docker compose -f docker-compose.yaml up -d
+          docker compose exec -T backend sh -lc '
+            python3 --version >/dev/null 2>&1 || apk add --no-cache python3 >/dev/null
+            python3 /app/scripts/test_integration_api.py --base http://frontend --skip-build
+          '
         '''
       }
+      post {
+        always {
+          sh '''
+            docker compose -f docker-compose.yaml down -v --remove-orphans >/dev/null 2>&1 || true
+          '''
+        }
+      }
+    }
+
+
       post {
         always {
           sh '''
