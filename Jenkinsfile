@@ -84,7 +84,7 @@ pipeline {
           docker network create cicd-network >/dev/null 2>&1 || true
 
           echo "Running integration script via docker-in-docker..."
-          python3 scripts/integration_test.py --base http://localhost
+          python3 scripts/integration_test_api.py --base http://localhost
         '''
       }
       post {
