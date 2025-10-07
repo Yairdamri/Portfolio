@@ -73,7 +73,7 @@ pipeline {
           echo "Running integration tests inside backend container..."
           docker compose exec -T backend sh -lc '
             python3 --version >/dev/null 2>&1 || apk add --no-cache python3 >/dev/null
-            python3 /app/scripts/test_integration_api.py --base http://frontend --skip-build
+          PYTHONPATH=/app python3 /app/scripts/test_integration_api.py --base http://frontend --skip-build
           '
         '''
       }
