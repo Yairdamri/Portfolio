@@ -108,6 +108,16 @@ def test_workout_flow_persists_data_and_returns_summary(client: TestClient):
     assert history["count"] >= 1
     assert any(item["completion"]["id"] == completion_id for item in history["items"])
 
+    # Delete the completion and ensure it is removed
+    delete_resp = client.delete(f"/v1/workouts/{completion_id}", headers=auth_headers)
+    assert delete_resp.status_code == 204
+    assert completions_col.find_one({"_id": completion_id, "user_id": user_id}) is None
+
+    history_after_delete = client.get("/v1/workouts/history?limit=5", headers=auth_headers)
+    assert history_after_delete.status_code == 200
+    deleted_ids = [item["completion"]["id"] for item in history_after_delete.json().get("items", [])]
+    assert completion_id not in deleted_ids
+
     # A different user must not see another user's plan
     other_headers, _, _ = register_user(client)
     other_get_plan = client.get(f"/v1/plans/{plan_id}", headers=other_headers)

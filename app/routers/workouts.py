@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from typing import List, Optional
 from datetime import datetime
 
@@ -28,6 +28,17 @@ async def complete_workout(req: CompletionRequest, user_id: str = Depends(get_us
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save completion: {e}")
     return completion
+
+
+@router.delete("/{completion_id}", status_code=204)
+async def delete_workout_completion(completion_id: str, user_id: str = Depends(get_user_id)):
+    try:
+        result = completions_col.delete_one({"_id": completion_id, "user_id": user_id})
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to delete completion: {exc}")
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Completion not found")
+    return Response(status_code=204)
 
 @router.get("/summary", response_model=WeeklySummary)
 async def get_weekly_summary(user_id: str = Depends(get_user_id)):
