@@ -1,1 +1,1 @@
-Working version integration test
+Working version publish stage
