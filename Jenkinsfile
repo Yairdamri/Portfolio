@@ -12,6 +12,9 @@ pipeline {
     IMAGE_FRONTEND        = 'workout-frontend'
     TAG                   = "${BRANCH_NAME}-${BUILD_NUMBER}"
     COMPOSE_PROJECT_NAME  = "ci-${BUILD_NUMBER}"
+    AWS_REGION            = 'ap-south-1'
+    ECR_REGISTRY          = '273809175099.dkr.ecr.ap-south-1.amazonaws.com'
+    ECR_URI               = '273809175099.dkr.ecr.ap-south-1.amazonaws.com/dev_protfolio'
   }
 
   stages {
@@ -113,6 +116,45 @@ pipeline {
             docker compose -f docker-compose.yaml down -v --remove-orphans >/dev/null 2>&1 || true
           '''
         }
+      }
+    }
+
+    stage('Tag Release') {
+      when {
+        branch 'main'
+      }
+      steps {
+        script {
+          def newTag = "v${BUILD_NUMBER}"
+          echo "Tagging repository with ${newTag}"
+          sh """
+            git config user.email "ci@example.com"
+            git config user.name "CI Bot"
+            git tag ${newTag}
+            git push origin ${newTag}
+          """
+        }
+      }
+    }
+
+    stage('Publish') {
+      when {
+        branch 'main'
+      }
+      steps {
+        sh '''
+          set -eu
+          echo "Authenticating with AWS ECR..."
+          aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+
+          echo "Tagging images for ECR..."
+          docker tag ${IMAGE_BACKEND}:${TAG} ${ECR_URI}:backend-${TAG}
+          docker tag ${IMAGE_FRONTEND}:${TAG} ${ECR_URI}:frontend-${TAG}
+
+          echo "Pushing images to ECR..."
+          docker push ${ECR_URI}:backend-${TAG}
+          docker push ${ECR_URI}:frontend-${TAG}
+        '''
       }
     }
   }
