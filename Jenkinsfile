@@ -141,19 +141,35 @@ pipeline {
         branch 'main'
       }
       steps {
-        sh '''
-          set -eu
-          echo "Authenticating with AWS ECR..."
-          aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+        withCredentials([[
+          $class: 'AmazonWebServicesCredentialsBinding',
+          credentialsId: 'aws-jenkins-creds'
+        ]]) {
+          sh '''
+            set -eu
+            export PATH="$HOME/.local/bin:$PATH"
+            if ! command -v aws >/dev/null 2>&1; then
+              echo "AWS CLI not found. Installing..."
+              python3 -m ensurepip --upgrade >/dev/null 2>&1 || true
+              python3 -m pip install --user --upgrade awscli >/dev/null
+            fi
+            if ! command -v aws >/dev/null 2>&1; then
+              echo "Failed to install AWS CLI" >&2
+              exit 1
+            fi
 
-          echo "Tagging images for ECR..."
-          docker tag ${IMAGE_BACKEND}:${TAG} ${ECR_URI}:backend-${TAG}
-          docker tag ${IMAGE_FRONTEND}:${TAG} ${ECR_URI}:frontend-${TAG}
+            echo "Authenticating with AWS ECR..."
+            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
 
-          echo "Pushing images to ECR..."
-          docker push ${ECR_URI}:backend-${TAG}
-          docker push ${ECR_URI}:frontend-${TAG}
-        '''
+            echo "Tagging images for ECR..."
+            docker tag ${IMAGE_BACKEND}:${TAG} ${ECR_URI}:backend-${TAG}
+            docker tag ${IMAGE_FRONTEND}:${TAG} ${ECR_URI}:frontend-${TAG}
+
+            echo "Pushing images to ECR..."
+            docker push ${ECR_URI}:backend-${TAG}
+            docker push ${ECR_URI}:frontend-${TAG}
+          '''
+        }
       }
     }
   }
