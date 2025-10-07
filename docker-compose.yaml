@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   backend:
-    build: .
+    image: ${IMAGE_BACKEND:-workout-backend}:${TAG:-latest}
     # Internal only; nginx (frontend) will reverse proxy to this
     expose:
       - "8000"
@@ -20,7 +20,7 @@ services:
       - frontend.network
 
   frontend:
-    build: ./frontend
+    image: ${IMAGE_FRONTEND:-workout-frontend}:${TAG:-latest}
     ports:
       - "80:80"
     depends_on:
