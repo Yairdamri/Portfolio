@@ -94,26 +94,31 @@ def run_api_flow(base: str) -> None:
     auth = {"Authorization": f"Bearer {token}"}
 
     # 1) Exercises list (GET)
+    print("Step 1: Fetching exercises catalog...")
     code, parsed, raw = http_json("GET", f"{base}/v1/exercises", headers=auth)
     assert code == 200, f"/v1/exercises expected 200 got {code} body={raw}"
     assert "items" in parsed and isinstance(parsed.get("count"), int), "Invalid exercises response"
 
     # 2) Create plan (POST)
+    print("Step 2: Creating workout plan...")
     code, parsed, raw = http_json("POST", f"{base}/v1/plans", data={"days_per_week": 3, "weeks": 1}, headers=auth)
     assert code == 201, f"Create plan expected 201 got {code} body={raw}"
     plan_id = parsed.get("id")
     assert plan_id, f"No plan id in response: {raw}"
 
     # 3) List plans (GET)
+    print("Step 3: Listing plans...")
     code, parsed, raw = http_json("GET", f"{base}/v1/plans", headers=auth)
     assert code == 200, f"List plans expected 200 got {code} body={raw}"
     assert isinstance(parsed.get("items"), list), "/v1/plans did not return a list"
 
     # 4) Get plan by id (GET)
+    print(f"Step 4: Retrieving plan {plan_id}...")
     code, parsed, raw = http_json("GET", f"{base}/v1/plans/{plan_id}", headers=auth)
     assert code == 200, f"Get plan expected 200 got {code} body={raw}"
 
     # 5) Complete a workout (POST)
+    print("Step 5: Completing a workout session...")
     payload = {
         "plan_id": plan_id,
         "session_index": 0,
@@ -128,26 +133,31 @@ def run_api_flow(base: str) -> None:
     assert completion_id, f"Completion response missing id: {raw}"
 
     # 6) Weekly summary (GET)
+    print("Step 6: Fetching weekly summary...")
     code, parsed, raw = http_json("GET", f"{base}/v1/workouts/summary", headers=auth)
     assert code == 200, f"Weekly summary expected 200 got {code} body={raw}"
 
     # 7) History (GET)
+    print("Step 7: Checking workout history contains new completion...")
     code, parsed, raw = http_json("GET", f"{base}/v1/workouts/history?limit=10", headers=auth)
     assert code == 200, f"History expected 200 got {code} body={raw}"
     ids_before = [it.get("completion", {}).get("id") for it in (parsed.get("items") or [])]
     assert completion_id in ids_before, "New completion not found in history"
 
     # 8) Delete the completion (DELETE)
+    print(f"Step 8: Deleting completion {completion_id}...")
     code, _, _ = http_json("DELETE", f"{base}/v1/workouts/{completion_id}", headers=auth)
     assert code == 204, f"Delete completion expected 204 got {code}"
 
     # 9) History should no longer include the deleted completion
+    print("Step 9: Verifying history no longer shows deleted completion...")
     code, parsed, raw = http_json("GET", f"{base}/v1/workouts/history?limit=10", headers=auth)
     assert code == 200, f"History after delete expected 200 got {code} body={raw}"
     ids_after = [it.get("completion", {}).get("id") for it in (parsed.get("items") or [])]
     assert completion_id not in ids_after, "Deleted completion still present in history"
 
     # Optional: method not allowed check (DELETE nonexistent)
+    print("Step 10: Confirming plans endpoint rejects DELETE...")
     code, _, _ = http_json("DELETE", f"{base}/v1/plans/{plan_id}", headers=auth)
     assert code in (404, 405), f"Unexpected code for DELETE /v1/plans/{{id}}: {code}"
 
