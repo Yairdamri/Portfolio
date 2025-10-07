@@ -122,14 +122,14 @@ pipeline {
     stage('Tag Release') {
   when { branch 'main' }
   steps {
-    withCredentials([usernamePassword(credentialsId: 'gitlab-token',
+    withCredentials([usernamePassword(credentialsId: 'gitlab-git-credentials',
                                       usernameVariable: 'GIT_USER',
                                       passwordVariable: 'GIT_TOKEN')]) {
       sh """
         git config user.email "yairdamri48@gmail.com"
         git config user.name "yairdamri48"
         git tag v${BUILD_NUMBER}
-        git push https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/your/group/repo.git v${BUILD_NUMBER}
+        git push https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/workout-gen v${BUILD_NUMBER}
       """
     }
   }
