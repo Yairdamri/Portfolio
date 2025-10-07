@@ -139,10 +139,8 @@ pipeline {
       }
     }
 
-    stage('Publish') {
-      when {
-        branch 'main'
-      }
+        stage('Publish') {
+      when { branch 'main' }
       steps {
         withCredentials([[
           $class: 'AmazonWebServicesCredentialsBinding',
@@ -155,17 +153,15 @@ pipeline {
               -e AWS_SECRET_ACCESS_KEY \
               -e AWS_SESSION_TOKEN \
               -e AWS_REGION=${AWS_REGION} \
-              -v /var/run/docker.sock:/var/run/docker.sock \
-              -v "$PWD":"$PWD" -w "$PWD" \
               amazon/aws-cli \
-              sh -c "
-                aws ecr get-login-password --region ${AWS_REGION} \
-                  | docker login --username AWS --password-stdin ${ECR_REGISTRY} &&
-                docker tag ${IMAGE_BACKEND}:${TAG} ${ECR_URI}:backend-${TAG} &&
-                docker tag ${IMAGE_FRONTEND}:${TAG} ${ECR_URI}:frontend-${TAG} &&
-                docker push ${ECR_URI}:backend-${TAG} &&
-                docker push ${ECR_URI}:frontend-${TAG}
-              "
+              ecr get-login-password --region ${AWS_REGION} \
+              | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+
+            docker tag ${IMAGE_BACKEND}:${TAG} ${ECR_URI}:backend-${TAG}
+            docker tag ${IMAGE_FRONTEND}:${TAG} ${ECR_URI}:frontend-${TAG}
+
+            docker push ${ECR_URI}:backend-${TAG}
+            docker push ${ECR_URI}:frontend-${TAG}
           '''
         }
       }
