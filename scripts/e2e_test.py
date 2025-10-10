@@ -185,7 +185,7 @@ def main():
 
         # Run API flow
         run_api_flow(args.base)
-        print("Integration tests OK")
+        print("E2E TEST OK")
     finally:
         # Clean up regardless of success/failure (only if we brought it up)
         if not args.skip_build and not skip_compose:
