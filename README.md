@@ -50,3 +50,14 @@ kubectl -n monitoring port-forward svc/prometheus-stack-grafana 3000:80
 
 promethues
 kubectl -n monitoring port-forward svc/prometheus-stack-kube-prom-prometheus 9090:9090
+
+
+
+dashboard premetues
+
+CPU Utilization per Node (%)
+
+
+to apply terraform 
+terraform apply -var-file=terraform.tfvars -var deploy_k8s_addons=false
+terraform apply -var-file=terraform.tfvars -var deploy_k8s_addons=true -target=module.argocd
