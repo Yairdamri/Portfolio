@@ -236,7 +236,6 @@ pipeline {
 }
 
 def versionCalculation() {
-  String newVersion = ''
   withCredentials([usernamePassword(
     credentialsId: 'gitlab-git-credentials',
     usernameVariable: 'GIT_USER',
@@ -247,20 +246,18 @@ def versionCalculation() {
       git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/workout-gen
       git fetch --tags --quiet || true
     '''
-    def latestTag = sh(returnStdout: true, script: 'git tag | sort -V | tail -n1').trim()
-    if (latestTag) {
-      def matcher = latestTag =~ /^v?(\\d+)\\.(\\d+)\\.(\\d+)$/
-      if (matcher.matches()) {
-        int major = matcher[0][1].toInteger()
-        int minor = matcher[0][2].toInteger()
-        int patch = matcher[0][3].toInteger() + 1
-        newVersion = "v${major}.${minor}.${patch}"
-      } else {
-        newVersion = "v1.0.0"
-      }
-    } else {
-      newVersion = "v1.0.0"
-    }
   }
-  return newVersion
+
+  def tags = sh(returnStdout: true, script: 'git tag --sort=version:refname').trim().split("\\n")
+  def latestTag = tags.reverse().find { it ==~ /^v?\\d+\\.\\d+\\.\\d+$/ }
+
+  if (latestTag) {
+    def matcher = latestTag =~ /^v?(\\d+)\\.(\\d+)\\.(\\d+)$/
+    int major = matcher[0][1].toInteger()
+    int minor = matcher[0][2].toInteger()
+    int patch = matcher[0][3].toInteger() + 1
+    return "v${major}.${minor}.${patch}"
+  }
+
+  return "v1.0.0"
 }
