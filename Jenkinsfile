@@ -172,8 +172,8 @@ pipeline {
           sh '''
             set -eu
 
-            BACKEND_TAG=backend-${TAG}
-            FRONTEND_TAG=frontend-${TAG}
+            BACKEND_TAG=backend-${CALCULATED_VERSION}
+            FRONTEND_TAG=frontend-${CALCULATED_VERSION}
 
             rm -rf k8s-infra
             git clone https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/k8s-infra.git
