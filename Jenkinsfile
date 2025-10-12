@@ -124,17 +124,17 @@ pipeline {
         branch 'main'
       }
       steps {
-        withCredentials([usernamePassword(
-          credentialsId: 'gitlab-git-credentials',
-          usernameVariable: 'GIT_USER',
-          passwordVariable: 'GIT_TOKEN'
-        )]) {
-          sh """
+        script {
+          env.CALCULATED_VERSION = versionCalculation()
+          echo "Calculated version: ${env.CALCULATED_VERSION}"
+        }
+        sshagent(credentials: ['gitlab-git-credentials']) {
+          sh '''
             git config user.email "yairdamri48@gmail.com"
             git config user.name "yairdamri48"
-            git tag v${BUILD_NUMBER}
-            git push https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/workout-gen v${BUILD_NUMBER}
-          """
+            git tag ${CALCULATED_VERSION}
+            git push origin ${CALCULATED_VERSION}
+          '''
         }
       }
     }
@@ -157,15 +157,47 @@ pipeline {
               ecr get-login-password --region ${AWS_REGION} \
               | docker login --username AWS --password-stdin ${ECR_REGISTRY}
 
-            docker tag ${IMAGE_BACKEND}:${TAG} ${ECR_URI}:backend-${TAG}
-            docker tag ${IMAGE_FRONTEND}:${TAG} ${ECR_URI}:frontend-${TAG}
+            docker tag ${IMAGE_BACKEND}:${TAG} ${ECR_URI}:backend-${CALCULATED_VERSION}
+            docker tag ${IMAGE_FRONTEND}:${TAG} ${ECR_URI}:frontend-${CALCULATED_VERSION}
             docker tag ${IMAGE_BACKEND}:${TAG} ${ECR_URI}:backend-latest
             docker tag ${IMAGE_FRONTEND}:${TAG} ${ECR_URI}:frontend-latest
 
-            docker push ${ECR_URI}:backend-${TAG}
-            docker push ${ECR_URI}:frontend-${TAG}
+            docker push ${ECR_URI}:backend-${CALCULATED_VERSION}
+            docker push ${ECR_URI}:frontend-${CALCULATED_VERSION}
             docker push ${ECR_URI}:backend-latest
             docker push ${ECR_URI}:frontend-latest
+          '''
+        }
+      }
+    }
+
+    stage('Deploy') {
+      when { branch 'main' }
+      steps {
+        sshagent(credentials: ['gitlab-git-credentials']) {
+          sh '''
+            set -eu
+
+            BACKEND_TAG=backend-${TAG}
+            FRONTEND_TAG=frontend-${TAG}
+
+            rm -rf k8s-infra
+            git clone git@gitlab.com:yair_portfolio/k8s-infra.git
+            cd k8s-infra
+
+            sed -i "s/tag: backend-.*/tag: ${BACKEND_TAG}/" k8s/charts/workout-stack/values.yaml
+            sed -i "s/tag: frontend-.*/tag: ${FRONTEND_TAG}/" k8s/charts/workout-stack/values.yaml
+            sed -i "s/^appVersion:.*/appVersion: ${CALCULATED_VERSION}/" k8s/charts/workout-stack/Chart.yaml
+
+            git config user.email "ci@jenkins"
+            git config user.name "Jenkins"
+            git add k8s/charts/workout-stack/values.yaml k8s/charts/workout-stack/Chart.yaml
+            if git diff --cached --quiet; then
+              echo "No changes to commit."
+            else
+              git commit -m "ci: deploy ${BACKEND_TAG}/${FRONTEND_TAG} (${CALCULATED_VERSION}) [skip ci]"
+              git push origin main
+            fi
           '''
         }
       }
@@ -192,4 +224,26 @@ pipeline {
       slackSend(message: "🚫 Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' was aborted. ${env.BUILD_URL}")
     }
   }
+}
+
+def versionCalculation() {
+  String newVersion = ''
+  sshagent(credentials: ['gitlab-git-credentials']) {
+    sh 'set -eu && git fetch --tags --quiet || true'
+    def latestTag = sh(returnStdout: true, script: 'git tag | sort -V | tail -n1').trim()
+    if (latestTag) {
+      def matcher = latestTag =~ /^v?(\\d+)\\.(\\d+)\\.(\\d+)$/
+      if (matcher.matches()) {
+        int major = matcher[0][1].toInteger()
+        int minor = matcher[0][2].toInteger()
+        int patch = matcher[0][3].toInteger() + 1
+        newVersion = "v${major}.${minor}.${patch}"
+      } else {
+        newVersion = "v1.0.0"
+      }
+    } else {
+      newVersion = "v1.0.0"
+    }
+  }
+  return newVersion
 }
