@@ -123,7 +123,7 @@ pipeline {
       }
       steps {
         script {
-          env.CALCULATED_VERSION = versionCalculation()
+          versionCalculation()
           echo "Calculated version: ${env.CALCULATED_VERSION}"
         }
       }
@@ -191,6 +191,8 @@ pipeline {
             else
               git commit -m "ci: deploy ${BACKEND_TAG}/${FRONTEND_TAG} (${CALCULATED_VERSION}) [skip ci]"
               git push https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/k8s-infra.git main
+              git tag -f ${CALCULATED_VERSION}
+              git push --force https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/k8s-infra.git ${CALCULATED_VERSION}
             fi
           '''
         }
@@ -213,8 +215,9 @@ pipeline {
       )]) {
         sh '''
           set -eu
-          git config user.email "Jenkinsci"
-          git config user.name "Jenkins"
+          git config user.email "yairdamri48@gmail.com"
+          git config user.name "yairdamri48"
+          git fetch --tags --quiet || true
           git tag -f ${CALCULATED_VERSION}
           git push --force https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/workout-gen ${CALCULATED_VERSION}
         '''
@@ -236,39 +239,36 @@ pipeline {
 }
 
 def versionCalculation() {
-  withCredentials([usernamePassword(
-    credentialsId: 'gitlab-git-credentials',
-    usernameVariable: 'GIT_USER',
-    passwordVariable: 'GIT_TOKEN'
-  )]) {
-    sh '''
-      set -eu
-      git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/workout-gen
-      git fetch --tags --quiet || true
-    '''
-  }
+    withCredentials([usernamePassword(
+         credentialsId: 'gitlab-git-credentials',
+         usernameVariable: 'GIT_USER',
+         passwordVariable: 'GIT_TOKEN'
+       )]) {
+        sh '''
+          set -eu
+          git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/workout-gen
+          git fetch --tags --quiet || true
+        '''
+    }
 
-  def latestTag = sh(
-    returnStdout: true,
-    script: "git tag --sort=-version:refname | grep -E '^v?[0-9]+\\.[0-9]+\\.[0-9]+' | head -n1 || true"
-  ).trim()
+    def latestTag = sh(
+      script: "git tag --sort=-version:refname | grep -E '^v?[0-9]+\\.[0-9]+\\.[0-9]+' | head -n1 || true",
+      returnStdout: true
+    ).trim()
 
-  return nextSemanticVersion(latestTag)
-}
+    echo "Latest tag is: ${latestTag}"
 
-String nextSemanticVersion(String latestTag) {
-  if (!latestTag) {
-    return "v1.0.0"
-  }
+    def versionPattern = ~/^v?(\d+)\.(\d+)\.(\d+)$/
+    def match = versionPattern.matcher(latestTag)
 
-  def matcher = latestTag =~ /^v?(\\d+)\\.(\\d+)\\.(\\d+)$/
-  if (!matcher.matches()) {
-    return "v1.0.0"
-  }
-
-  int major = matcher.group(1).toInteger()
-  int minor = matcher.group(2).toInteger()
-  int patch = matcher.group(3).toInteger() + 1
-
-  return "v${major}.${minor}.${patch}"
+    if (latestTag && match.matches()) {
+        echo "Incrementing patch version"
+        def major = match.group(1).toInteger()
+        def minor = match.group(2).toInteger()
+        def patch = match.group(3).toInteger() + 1
+        env.CALCULATED_VERSION = "v${major}.${minor}.${patch}"
+    } else {
+        echo "No existing tags or unrecognized format. Setting version to v1.0.0"
+        env.CALCULATED_VERSION = "v1.0.0"
+    }
 }
