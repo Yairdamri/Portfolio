@@ -248,8 +248,10 @@ def versionCalculation() {
     '''
   }
 
-  def tags = sh(returnStdout: true, script: 'git tag --sort=version:refname').trim().split("\\n")
-  def latestTag = tags.reverse().find { it ==~ /^v?\\d+\\.\\d+\\.\\d+$/ }
+  def latestTag = sh(
+    returnStdout: true,
+    script: "git tag --sort=version:refname | grep -E '^v?[0-9]+\\.[0-9]+\\.[0-9]+' | tail -n1 || true"
+  ).trim()
 
   if (latestTag) {
     def matcher = latestTag =~ /^v?(\\d+)\\.(\\d+)\\.(\\d+)$/
