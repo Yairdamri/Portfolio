@@ -194,8 +194,8 @@ pipeline {
             git clone https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/k8s-infra.git
             cd k8s-infra
 
-            sed -i "s/tag: backend-.*/tag: ${BACKEND_TAG}/" k8s/charts/workout-stack/values.yaml
-            sed -i "s/tag: frontend-.*/tag: ${FRONTEND_TAG}/" k8s/charts/workout-stack/values.yaml
+            sed -i "s/tag: backend-.*/tag: ${BACKEND_TAG}/" charts/workout-stack/values.yaml
+            sed -i "s/tag: frontend-.*/tag: ${FRONTEND_TAG}/" charts/workout-stack/values.yaml
             sed -i "s/^appVersion:.*/appVersion: ${CALCULATED_VERSION}/" k8s/charts/workout-stack/Chart.yaml
 
             git config user.email "ci@jenkins"
