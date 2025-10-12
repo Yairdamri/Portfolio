@@ -62,3 +62,4 @@ to apply terraform
 terraform apply -var-file=terraform.tfvars -var deploy_k8s_addons=false
 terraform apply -var-file=terraform.tfvars -var deploy_k8s_addons=true -target=module.argocd
 
+.
