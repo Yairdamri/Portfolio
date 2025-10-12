@@ -250,16 +250,25 @@ def versionCalculation() {
 
   def latestTag = sh(
     returnStdout: true,
-    script: "git tag --sort=version:refname | grep -E '^v?[0-9]+\\.[0-9]+\\.[0-9]+' | tail -n1 || true"
+    script: "git tag --sort=-version:refname | grep -E '^v?[0-9]+\\.[0-9]+\\.[0-9]+' | head -n1 || true"
   ).trim()
 
-  if (latestTag) {
-    def matcher = latestTag =~ /^v?(\\d+)\\.(\\d+)\\.(\\d+)$/
-    int major = matcher[0][1].toInteger()
-    int minor = matcher[0][2].toInteger()
-    int patch = matcher[0][3].toInteger() + 1
-    return "v${major}.${minor}.${patch}"
+  return nextSemanticVersion(latestTag)
+}
+
+String nextSemanticVersion(String latestTag) {
+  if (!latestTag) {
+    return "v1.0.0"
   }
 
-  return "v1.0.0"
+  def matcher = latestTag =~ /^v?(\\d+)\\.(\\d+)\\.(\\d+)$/
+  if (!matcher.matches()) {
+    return "v1.0.0"
+  }
+
+  int major = matcher.group(1).toInteger()
+  int minor = matcher.group(2).toInteger()
+  int patch = matcher.group(3).toInteger() + 1
+
+  return "v${major}.${minor}.${patch}"
 }
