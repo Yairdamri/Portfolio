@@ -117,9 +117,7 @@ pipeline {
     //       '''
     //     }
     //   }
-    // }
-
-    stage('Tag Release') {
+    stage('Prepare Version') {
       when {
         branch 'main'
       }
@@ -127,19 +125,6 @@ pipeline {
         script {
           env.CALCULATED_VERSION = versionCalculation()
           echo "Calculated version: ${env.CALCULATED_VERSION}"
-        }
-        withCredentials([usernamePassword(
-          credentialsId: 'gitlab-git-credentials',
-          usernameVariable: 'GIT_USER',
-          passwordVariable: 'GIT_TOKEN'
-        )]) {
-          sh '''
-            set -eu
-            git config user.email "yairdamri48@gmail.com"
-            git config user.name "yairdamri48"
-            git tag ${CALCULATED_VERSION}
-            git push https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/workout-gen ${CALCULATED_VERSION}
-          '''
         }
       }
     }
@@ -218,10 +203,22 @@ pipeline {
       echo "Final cleanup..."
       sh 'docker compose -f docker-compose.yaml down -v --remove-orphans || true'
       archiveArtifacts artifacts: 'artifacts/*.tar', onlyIfSuccessful: false
-      cleanWs()
     }
     success {
       slackSend(message: "✅ Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' succeeded. ${env.BUILD_URL}")
+      withCredentials([usernamePassword(
+        credentialsId: 'gitlab-git-credentials',
+        usernameVariable: 'GIT_USER',
+        passwordVariable: 'GIT_TOKEN'
+      )]) {
+        sh '''
+          set -eu
+          git config user.email "yairdamri48@gmail.com"
+          git config user.name "yairdamri48"
+          git tag -f ${CALCULATED_VERSION}
+          git push --force https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/workout-gen ${CALCULATED_VERSION}
+        '''
+      }
     }
     failure {
       slackSend(message: "❌ Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' failed. ${env.BUILD_URL}")
@@ -231,6 +228,9 @@ pipeline {
     }
     aborted {
       slackSend(message: "🚫 Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' was aborted. ${env.BUILD_URL}")
+    }
+    cleanup {
+      cleanWs()
     }
   }
 }
