@@ -181,11 +181,11 @@ pipeline {
 
             sed -i "s/tag: backend-.*/tag: ${BACKEND_TAG}/" charts/workout-stack/values.yaml
             sed -i "s/tag: frontend-.*/tag: ${FRONTEND_TAG}/" charts/workout-stack/values.yaml
-            sed -i "s/^appVersion:.*/appVersion: ${CALCULATED_VERSION}/" k8s/charts/workout-stack/Chart.yaml
+            sed -i "s/^appVersion:.*/appVersion: ${CALCULATED_VERSION}/" charts/workout-stack/Chart.yaml
 
             git config user.email "ci@jenkins"
             git config user.name "Jenkins"
-            git add k8s/charts/workout-stack/values.yaml k8s/charts/workout-stack/Chart.yaml
+            git add charts/workout-stack/values.yaml charts/workout-stack/Chart.yaml
             if git diff --cached --quiet; then
               echo "No changes to commit."
             else
@@ -213,8 +213,8 @@ pipeline {
       )]) {
         sh '''
           set -eu
-          git config user.email "yairdamri48@gmail.com"
-          git config user.name "yairdamri48"
+          git config user.email "Jenkinsci"
+          git config user.name "Jenkins"
           git tag -f ${CALCULATED_VERSION}
           git push --force https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/workout-gen ${CALCULATED_VERSION}
         '''
