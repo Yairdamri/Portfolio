@@ -7,14 +7,15 @@ pipeline {
   }
 
   environment {
-    DOCKER_BUILDKIT       = '1'
-    IMAGE_BACKEND         = 'workout-backend'
-    IMAGE_FRONTEND        = 'workout-frontend'
-    TAG                   = "${BRANCH_NAME}-${BUILD_NUMBER}"
-    COMPOSE_PROJECT_NAME  = "ci-${BUILD_NUMBER}"
-    AWS_REGION            = 'ap-south-1'
-    ECR_REGISTRY          = '273809175099.dkr.ecr.ap-south-1.amazonaws.com'
-    ECR_URI               = '273809175099.dkr.ecr.ap-south-1.amazonaws.com/dev_protfolio'
+    DOCKER_BUILDKIT      = '1'
+    IMAGE_BACKEND        = 'workout-backend'
+    IMAGE_FRONTEND       = 'workout-frontend'
+    TAG                  = "${BRANCH_NAME}-${BUILD_NUMBER}"
+    COMPOSE_PROJECT_NAME = "ci-${BUILD_NUMBER}"
+    AWS_REGION           = 'ap-south-1'
+    ECR_REGISTRY         = '273809175099.dkr.ecr.ap-south-1.amazonaws.com'
+    ECR_URI              = '273809175099.dkr.ecr.ap-south-1.amazonaws.com/dev_protfolio'
+    PATH = "/var/jenkins_home/bin:${env.PATH}"
   }
 
   stages {
@@ -53,12 +54,11 @@ pipeline {
           echo "Building production Docker images..."
           docker build -t ${IMAGE_BACKEND}:${TAG} .
           docker build -t ${IMAGE_FRONTEND}:${TAG} ./frontend
-
-          echo "Saving Docker images as artifacts..."
-          mkdir -p artifacts
-          docker save ${IMAGE_BACKEND}:${TAG} -o artifacts/${IMAGE_BACKEND}-${TAG}.tar
-          docker save ${IMAGE_FRONTEND}:${TAG} -o artifacts/${IMAGE_FRONTEND}-${TAG}.tar
         '''
+        // echo "Saving Docker images as artifacts..."
+        // mkdir -p artifacts
+        // docker save ${IMAGE_BACKEND}:${TAG} -o artifacts/${IMAGE_BACKEND}-${TAG}.tar
+        // docker save ${IMAGE_FRONTEND}:${TAG} -o artifacts/${IMAGE_FRONTEND}-${TAG}.tar
       }
     }
 
@@ -117,6 +117,8 @@ pipeline {
     //       '''
     //     }
     //   }
+    // }
+
     stage('Prepare Version') {
       when {
         branch 'main'
@@ -130,97 +132,97 @@ pipeline {
     }
 
     stage('Publish') {
-      when { branch 'main' }
+      when {
+        branch 'main'
+      }
       steps {
         withCredentials([[
-          $class: 'AmazonWebServicesCredentialsBinding',
+          $class       : 'AmazonWebServicesCredentialsBinding',
           credentialsId: 'aws-jenkins-creds'
         ]]) {
+           sh '''
+            aws ecr get-login-password --region "${AWS_REGION}" \
+              | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
+
+            docker tag "${IMAGE_BACKEND}:${TAG}"    "${ECR_URI}:backend-${CALCULATED_VERSION}"
+            docker tag "${IMAGE_FRONTEND}:${TAG}"   "${ECR_URI}:frontend-${CALCULATED_VERSION}"
+            docker tag "${IMAGE_BACKEND}:${TAG}"    "${ECR_URI}:backend-latest"
+            docker tag "${IMAGE_FRONTEND}:${TAG}"   "${ECR_URI}:frontend-latest"
+
+            docker push "${ECR_URI}:backend-${CALCULATED_VERSION}"
+            docker push "${ECR_URI}:frontend-${CALCULATED_VERSION}"
+            docker push "${ECR_URI}:backend-latest"
+            docker push "${ECR_URI}:frontend-latest"
+          '''
+        }
+      }
+      post {
+        success {
           sh '''
             set -eu
-            docker run --rm \
-              -e AWS_ACCESS_KEY_ID \
-              -e AWS_SECRET_ACCESS_KEY \
-              -e AWS_SESSION_TOKEN \
-              -e AWS_REGION=${AWS_REGION} \
-              amazon/aws-cli \
-              ecr get-login-password --region ${AWS_REGION} \
-              | docker login --username AWS --password-stdin ${ECR_REGISTRY}
-
-            docker tag ${IMAGE_BACKEND}:${TAG} ${ECR_URI}:backend-${CALCULATED_VERSION}
-            docker tag ${IMAGE_FRONTEND}:${TAG} ${ECR_URI}:frontend-${CALCULATED_VERSION}
-            docker tag ${IMAGE_BACKEND}:${TAG} ${ECR_URI}:backend-latest
-            docker tag ${IMAGE_FRONTEND}:${TAG} ${ECR_URI}:frontend-latest
-
-            docker push ${ECR_URI}:backend-${CALCULATED_VERSION}
-            docker push ${ECR_URI}:frontend-${CALCULATED_VERSION}
-            docker push ${ECR_URI}:backend-latest
-            docker push ${ECR_URI}:frontend-latest
+            git config user.email "yairdamri48@gmail.com"
+            git config user.name "yairdamri48"
+            git fetch --tags --quiet || true
+            git tag -f ${CALCULATED_VERSION}
+            git push --force https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/workout-gen ${CALCULATED_VERSION}
           '''
         }
       }
     }
 
-    stage('Deploy') {
-      when { branch 'main' }
-      steps {
-        withCredentials([usernamePassword(
-          credentialsId: 'gitlab-git-credentials',
-          usernameVariable: 'GIT_USER',
-          passwordVariable: 'GIT_TOKEN'
-        )]) {
-          sh '''
-            set -eu
+  //   stage('Deploy') {
+  //     when {
+  //       branch 'main'
+  //     }
+  //     steps {
+  //       withCredentials([usernamePassword(
+  //         credentialsId   : 'gitlab-git-credentials',
+  //         usernameVariable: 'GIT_USER',
+  //         passwordVariable: 'GIT_TOKEN'
+  //       )]) {
+  //         sh '''
+  //           set -eu
 
-            BACKEND_TAG=backend-${CALCULATED_VERSION}
-            FRONTEND_TAG=frontend-${CALCULATED_VERSION}
+  //           BACKEND_TAG=backend-${CALCULATED_VERSION}
+  //           FRONTEND_TAG=frontend-${CALCULATED_VERSION}
 
-            rm -rf k8s-infra
-            git clone https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/k8s-infra.git
-            cd k8s-infra
+  //           rm -rf k8s-infra
+  //           git clone https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/k8s-infra.git
+  //           cd k8s-infra
 
-            sed -i "s/tag: backend-.*/tag: ${BACKEND_TAG}/" charts/workout-stack/values.yaml
-            sed -i "s/tag: frontend-.*/tag: ${FRONTEND_TAG}/" charts/workout-stack/values.yaml
-            sed -i "s/^appVersion:.*/appVersion: ${CALCULATED_VERSION}/" charts/workout-stack/Chart.yaml
+  //           sed -i "s/tag: backend-.*/tag: ${BACKEND_TAG}/" charts/workout-stack/values.yaml
+  //           sed -i "s/tag: frontend-.*/tag: ${FRONTEND_TAG}/" charts/workout-stack/values.yaml
+  //           sed -i "s/^appVersion:.*/appVersion: ${CALCULATED_VERSION}/" charts/workout-stack/Chart.yaml
 
-            git config user.email "ci@jenkins"
-            git config user.name "Jenkins"
-            git add charts/workout-stack/values.yaml charts/workout-stack/Chart.yaml
-            if git diff --cached --quiet; then
-              echo "No changes to commit."
-            else
-              git commit -m "ci: deploy ${BACKEND_TAG}/${FRONTEND_TAG} (${CALCULATED_VERSION}) [skip ci]"
-              git push https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/k8s-infra.git main
-              git tag -f ${CALCULATED_VERSION}
-              git push --force https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/k8s-infra.git ${CALCULATED_VERSION}
-            fi
-          '''
-        }
-      }
-    }
-  }
+  //           git config user.email "ci@jenkins"
+  //           git config user.name "Jenkins"
+  //           git add charts/workout-stack/values.yaml charts/workout-stack/Chart.yaml
+  //           if git diff --cached --quiet; then
+  //             echo "No changes to commit."
+  //           else
+  //             git commit -m "ci: deploy ${BACKEND_TAG}/${FRONTEND_TAG} (${CALCULATED_VERSION}) [skip ci]"
+  //             git push https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/k8s-infra.git main
+  //           fi
+  //         '''
+  //       }
+  //     }
+  //   }
+  // }
 
   post {
     always {
       echo "Final cleanup..."
       sh 'docker compose -f docker-compose.yaml down -v --remove-orphans || true'
-      archiveArtifacts artifacts: 'artifacts/*.tar', onlyIfSuccessful: false
+      // archiveArtifacts artifacts: 'artifacts/*.tar', onlyIfSuccessful: false
     }
     success {
       slackSend(message: "✅ Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' succeeded. ${env.BUILD_URL}")
       withCredentials([usernamePassword(
-        credentialsId: 'gitlab-git-credentials',
+        credentialsId   : 'gitlab-git-credentials',
         usernameVariable: 'GIT_USER',
         passwordVariable: 'GIT_TOKEN'
       )]) {
-        sh '''
-          set -eu
-          git config user.email "yairdamri48@gmail.com"
-          git config user.name "yairdamri48"
-          git fetch --tags --quiet || true
-          git tag -f ${CALCULATED_VERSION}
-          git push --force https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/workout-gen ${CALCULATED_VERSION}
-        '''
+        // Additional success handling can go here.
       }
     }
     failure {
@@ -239,36 +241,36 @@ pipeline {
 }
 
 def versionCalculation() {
-    withCredentials([usernamePassword(
-         credentialsId: 'gitlab-git-credentials',
-         usernameVariable: 'GIT_USER',
-         passwordVariable: 'GIT_TOKEN'
-       )]) {
-        sh '''
-          set -eu
-          git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/workout-gen
-          git fetch --tags --quiet || true
-        '''
-    }
+  withCredentials([usernamePassword(
+    credentialsId   : 'gitlab-git-credentials',
+    usernameVariable: 'GIT_USER',
+    passwordVariable: 'GIT_TOKEN'
+  )]) {
+    sh '''
+      set -eu
+      git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/workout-gen
+      git fetch --tags --quiet || true
+    '''
+  }
 
-    def latestTag = sh(
-      script: "git tag --sort=-version:refname | grep -E '^v?[0-9]+\\.[0-9]+\\.[0-9]+' | head -n1 || true",
-      returnStdout: true
-    ).trim()
+  def latestTag = sh(
+    script      : "git tag --sort=-version:refname | grep -E '^v?[0-9]+\\.[0-9]+\\.[0-9]+' | head -n1 || true",
+    returnStdout: true
+  ).trim()
 
-    echo "Latest tag is: ${latestTag}"
+  echo "Latest tag is: ${latestTag}"
 
-    def versionPattern = ~/^v?(\d+)\.(\d+)\.(\d+)$/
-    def match = versionPattern.matcher(latestTag)
+  def versionPattern = ~/^v?(\d+)\.(\d+)\.(\d+)$/
+  def match = versionPattern.matcher(latestTag)
 
-    if (latestTag && match.matches()) {
-        echo "Incrementing patch version"
-        def major = match.group(1).toInteger()
-        def minor = match.group(2).toInteger()
-        def patch = match.group(3).toInteger() + 1
-        env.CALCULATED_VERSION = "v${major}.${minor}.${patch}"
-    } else {
-        echo "No existing tags or unrecognized format. Setting version to v1.0.0"
-        env.CALCULATED_VERSION = "v1.0.0"
-    }
+  if (latestTag && match.matches()) {
+    echo "Incrementing patch version"
+    def major = match.group(1).toInteger()
+    def minor = match.group(2).toInteger()
+    def patch = match.group(3).toInteger() + 1
+    env.CALCULATED_VERSION = "v${major}.${minor}.${patch}"
+  } else {
+    echo "No existing tags or unrecognized format. Setting version to v1.0.0"
+    env.CALCULATED_VERSION = "v1.0.0"
+  }
 }

@@ -60,9 +60,23 @@ CPU Utilization per Node (%)
 
 to apply terraform 
 terraform apply -var-file=terraform.tfvars -var deploy_k8s_addons=false
+aws eks update-kubeconfig --name dev-workout-eks --region ap-south-1  
+aws eks update-nodegroup-config \                                     
+  --cluster-name dev-workout-eks \
+  --nodegroup-name default-20251013150031631900000013 \
+  --scaling-config minSize=3,maxSize=3,desiredSize=3
 terraform apply -var-file=terraform.tfvars -var deploy_k8s_addons=true -target=module.argocd
 
 .
 ..
 
 
+
+to destroy 
+cd infra/environments/dev
+terraform state list | grep -E 'kubernetes|helm_release'
+terraform state rm 'module.argocd[0].kubernetes_namespace.this'
+terraform state rm 'module.argocd[0].helm_release.argocd'
+terraform state rm 'module.ebs_csi[0].kubernetes_storage_class_v1.default[0]'
+terraform state rm 'module.eks_auth[0].kubernetes_config_map_v1_data.aws_auth[0]'
+terraform destroy
