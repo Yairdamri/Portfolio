@@ -62,7 +62,7 @@ pipeline {
       }
       steps {
         sh '''
-          set -euo pipefail
+          set -eu
           echo "Starting integration test environment..."
           docker network inspect cicd-network >/dev/null 2>&1 || docker network create cicd-network
           docker compose -f docker-compose.yaml up -d
