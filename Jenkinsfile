@@ -15,7 +15,7 @@ pipeline {
     AWS_REGION           = 'ap-south-1'
     ECR_REGISTRY         = '273809175099.dkr.ecr.ap-south-1.amazonaws.com'
     ECR_URI              = '273809175099.dkr.ecr.ap-south-1.amazonaws.com/dev_protfolio'
-    PATH = "/var/jenkins_home/bin:${env.PATH}"
+    PATH                 = "/var/jenkins_home/bin:${env.PATH}"
   }
 
   stages {
@@ -72,7 +72,7 @@ pipeline {
     //       echo "Starting integration test environment..."
     //       docker network inspect cicd-network >/dev/null 2>&1 || docker network create cicd-network
     //       docker compose -f docker-compose.yaml up -d
-
+    //
     //       echo "Running integration tests inside backend container..."
     //       docker compose exec -T backend sh -lc '
     //         python3 --version >/dev/null 2>&1 || apk add --no-cache python3 >/dev/null
@@ -90,7 +90,7 @@ pipeline {
     //     }
     //   }
     // }
-
+    //
     // stage('E2E Test') {
     //   when {
     //     expression { env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') }
@@ -101,7 +101,7 @@ pipeline {
     //       echo "Starting E2E environment..."
     //       docker network inspect cicd-network >/dev/null 2>&1 || docker network create cicd-network
     //       docker compose -f docker-compose.yaml up -d
-
+    //
     //       echo "Running E2E script against live stack..."
     //       docker compose exec -T backend sh -lc '
     //         python3 --version >/dev/null 2>&1 || apk add --no-cache python3 >/dev/null
@@ -140,7 +140,7 @@ pipeline {
           $class       : 'AmazonWebServicesCredentialsBinding',
           credentialsId: 'aws-jenkins-creds'
         ]]) {
-           sh '''
+          sh '''
             aws ecr get-login-password --region "${AWS_REGION}" \
               | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
 
@@ -170,44 +170,45 @@ pipeline {
       }
     }
 
-  //   stage('Deploy') {
-  //     when {
-  //       branch 'main'
-  //     }
-  //     steps {
-  //       withCredentials([usernamePassword(
-  //         credentialsId   : 'gitlab-git-credentials',
-  //         usernameVariable: 'GIT_USER',
-  //         passwordVariable: 'GIT_TOKEN'
-  //       )]) {
-  //         sh '''
-  //           set -eu
-
-  //           BACKEND_TAG=backend-${CALCULATED_VERSION}
-  //           FRONTEND_TAG=frontend-${CALCULATED_VERSION}
-
-  //           rm -rf k8s-infra
-  //           git clone https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/k8s-infra.git
-  //           cd k8s-infra
-
-  //           sed -i "s/tag: backend-.*/tag: ${BACKEND_TAG}/" charts/workout-stack/values.yaml
-  //           sed -i "s/tag: frontend-.*/tag: ${FRONTEND_TAG}/" charts/workout-stack/values.yaml
-  //           sed -i "s/^appVersion:.*/appVersion: ${CALCULATED_VERSION}/" charts/workout-stack/Chart.yaml
-
-  //           git config user.email "ci@jenkins"
-  //           git config user.name "Jenkins"
-  //           git add charts/workout-stack/values.yaml charts/workout-stack/Chart.yaml
-  //           if git diff --cached --quiet; then
-  //             echo "No changes to commit."
-  //           else
-  //             git commit -m "ci: deploy ${BACKEND_TAG}/${FRONTEND_TAG} (${CALCULATED_VERSION}) [skip ci]"
-  //             git push https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/k8s-infra.git main
-  //           fi
-  //         '''
-  //       }
-  //     }
-  //   }
-  // }
+    //   stage('Deploy') {
+    //     when {
+    //       branch 'main'
+    //     }
+    //     steps {
+    //       withCredentials([usernamePassword(
+    //         credentialsId   : 'gitlab-git-credentials',
+    //         usernameVariable: 'GIT_USER',
+    //         passwordVariable: 'GIT_TOKEN'
+    //       )]) {
+    //         sh '''
+    //           set -eu
+    //
+    //           BACKEND_TAG=backend-${CALCULATED_VERSION}
+    //           FRONTEND_TAG=frontend-${CALCULATED_VERSION}
+    //
+    //           rm -rf k8s-infra
+    //           git clone https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/k8s-infra.git
+    //           cd k8s-infra
+    //
+    //           sed -i "s/tag: backend-.*/tag: ${BACKEND_TAG}/" charts/workout-stack/values.yaml
+    //           sed -i "s/tag: frontend-.*/tag: ${FRONTEND_TAG}/" charts/workout-stack/values.yaml
+    //           sed -i "s/^appVersion:.*/appVersion: ${CALCULATED_VERSION}/" charts/workout-stack/Chart.yaml
+    //
+    //           git config user.email "ci@jenkins"
+    //           git config user.name "Jenkins"
+    //           git add charts/workout-stack/values.yaml charts/workout-stack/Chart.yaml
+    //           if git diff --cached --quiet; then
+    //             echo "No changes to commit."
+    //           else
+    //             git commit -m "ci: deploy ${BACKEND_TAG}/${FRONTEND_TAG} (${CALCULATED_VERSION}) [skip ci]"
+    //             git push https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/k8s-infra.git main
+    //           fi
+    //         '''
+    //       }
+    //     }
+    //   }
+    // }
+  }
 
   post {
     always {
@@ -272,6 +273,5 @@ def versionCalculation() {
   } else {
     echo "No existing tags or unrecognized format. Setting version to v1.0.0"
     env.CALCULATED_VERSION = "v1.0.0"
-    }
   }
 }
