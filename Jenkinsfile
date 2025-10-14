@@ -220,9 +220,6 @@ pipeline {
     always {
       echo "Final cleanup..."
       sh 'docker compose -f docker-compose.yaml down -v --remove-orphans || true'
-      cleanup {
-      cleanWs()
-      }
     }
     success {
       slackSend(message: "✅ Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' succeeded. ${env.BUILD_URL}")
@@ -235,7 +232,10 @@ pipeline {
     }
     aborted {
       slackSend(message: "🚫 Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' was aborted. ${env.BUILD_URL}")
-    } 
+    }
+    cleanup {
+      cleanWs()
+    }
   }
 }
 
