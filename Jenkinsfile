@@ -272,5 +272,6 @@ def versionCalculation() {
   } else {
     echo "No existing tags or unrecognized format. Setting version to v1.0.0"
     env.CALCULATED_VERSION = "v1.0.0"
+    }
   }
 }
