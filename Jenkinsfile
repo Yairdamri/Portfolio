@@ -26,24 +26,24 @@ pipeline {
       }
     }
 
-    // stage('Build Test Image') {
-    //   steps {
-    //     sh '''
-    //       set -eu
-    //       echo "Building lightweight test image..."
-    //       docker build -f Dockerfile.test -t backend-test:ci .
-    //     '''
-    //   }
-    // }
+    stage('Build Test Image') {
+      steps {
+        sh '''
+          set -eu
+          echo "Building lightweight test image..."
+          docker build -f Dockerfile.test -t backend-test:ci .
+        '''
+      }
+    }
 
-    // stage('Unit Tests') {
-    //   steps {
-    //     sh '''
-    //       set -eu
-    //       echo "Running unit tests..."
-    //     '''
-    //   }
-    // }
+    stage('Unit Tests') {
+      steps {
+        sh '''
+          set -eu
+          echo "Running unit tests..."
+        '''
+      }
+    }
 
     stage('Package') {
       steps {
@@ -108,100 +108,100 @@ pipeline {
       }
     }
 
-  //   stage('Prepare Version') {
-  //     when {
-  //       branch 'main'
-  //     }
-  //     steps {
-  //       script {
-  //         versionCalculation()
-  //         echo "Calculated version: ${env.CALCULATED_VERSION}"
-  //       }
-  //     }
-  //   }
+    stage('Prepare Version') {
+      when {
+        branch 'main'
+      }
+      steps {
+        script {
+          versionCalculation()
+          echo "Calculated version: ${env.CALCULATED_VERSION}"
+        }
+      }
+    }
 
-  //   stage('Publish') {
-  //     when {
-  //       branch 'main'
-  //     }
-  //     steps {
-  //       withCredentials([[
-  //         $class       : 'AmazonWebServicesCredentialsBinding',
-  //         credentialsId: 'aws-jenkins-creds'
-  //       ]]) {
-  //         sh '''
-  //           aws ecr get-login-password --region "${AWS_REGION}" \
-  //             | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
+    stage('Publish') {
+      when {
+        branch 'main'
+      }
+      steps {
+        withCredentials([[
+          $class       : 'AmazonWebServicesCredentialsBinding',
+          credentialsId: 'aws-jenkins-creds'
+        ]]) {
+          sh '''
+            aws ecr get-login-password --region "${AWS_REGION}" \
+              | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
 
-  //           docker tag "${IMAGE_BACKEND}:${TAG}"    "${ECR_URI}:backend-${CALCULATED_VERSION}"
-  //           docker tag "${IMAGE_FRONTEND}:${TAG}"   "${ECR_URI}:frontend-${CALCULATED_VERSION}"
-  //           docker tag "${IMAGE_BACKEND}:${TAG}"    "${ECR_URI}:backend-latest"
-  //           docker tag "${IMAGE_FRONTEND}:${TAG}"   "${ECR_URI}:frontend-latest"
+            docker tag "${IMAGE_BACKEND}:${TAG}"    "${ECR_URI}:backend-${CALCULATED_VERSION}"
+            docker tag "${IMAGE_FRONTEND}:${TAG}"   "${ECR_URI}:frontend-${CALCULATED_VERSION}"
+            docker tag "${IMAGE_BACKEND}:${TAG}"    "${ECR_URI}:backend-latest"
+            docker tag "${IMAGE_FRONTEND}:${TAG}"   "${ECR_URI}:frontend-latest"
 
-  //           docker push "${ECR_URI}:backend-${CALCULATED_VERSION}"
-  //           docker push "${ECR_URI}:frontend-${CALCULATED_VERSION}"
-  //           docker push "${ECR_URI}:backend-latest"
-  //           docker push "${ECR_URI}:frontend-latest"
-  //         '''
-  //       }
-  //     }
-  //     post {
-  //       success {
-  //         withCredentials([usernamePassword(
-  //           credentialsId   : 'gitlab-git-credentials',
-  //           usernameVariable: 'GIT_USER',
-  //           passwordVariable: 'GIT_TOKEN'
-  //         )]) {
-  //           sh '''
-  //             set -eu
-  //             git config user.email "yairdamri48@gmail.com"
-  //             git config user.name "yairdamri48"
-  //             git fetch --tags --quiet || true
-  //             git tag -f ${CALCULATED_VERSION}
-  //             git push --force https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/workout-gen ${CALCULATED_VERSION}
-  //           '''
-  //         }
-  //       }
-  //     }
-  //   }
+            docker push "${ECR_URI}:backend-${CALCULATED_VERSION}"
+            docker push "${ECR_URI}:frontend-${CALCULATED_VERSION}"
+            docker push "${ECR_URI}:backend-latest"
+            docker push "${ECR_URI}:frontend-latest"
+          '''
+        }
+      }
+      post {
+        success {
+          withCredentials([usernamePassword(
+            credentialsId   : 'gitlab-git-credentials',
+            usernameVariable: 'GIT_USER',
+            passwordVariable: 'GIT_TOKEN'
+          )]) {
+            sh '''
+              set -eu
+              git config user.email "yairdamri48@gmail.com"
+              git config user.name "yairdamri48"
+              git fetch --tags --quiet || true
+              git tag -f ${CALCULATED_VERSION}
+              git push --force https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/workout-gen ${CALCULATED_VERSION}
+            '''
+          }
+        }
+      }
+    }
 
-  //   stage('Deploy') {
-  //     when {
-  //       branch 'main'
-  //     }
-  //     steps {
-  //       withCredentials([usernamePassword(
-  //         credentialsId   : 'gitlab-git-credentials',
-  //         usernameVariable: 'GIT_USER',
-  //         passwordVariable: 'GIT_TOKEN'
-  //       )]) {
-  //         sh '''
-  //           set -eu
+    stage('Deploy') {
+      when {
+        branch 'main'
+      }
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId   : 'gitlab-git-credentials',
+          usernameVariable: 'GIT_USER',
+          passwordVariable: 'GIT_TOKEN'
+        )]) {
+          sh '''
+            set -eu
     
-  //           BACKEND_TAG=backend-${CALCULATED_VERSION}
-  //           FRONTEND_TAG=frontend-${CALCULATED_VERSION}
+            BACKEND_TAG=backend-${CALCULATED_VERSION}
+            FRONTEND_TAG=frontend-${CALCULATED_VERSION}
     
-  //           rm -rf k8s-infra
-  //           git clone https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/k8s-infra.git
-  //           cd k8s-infra
+            rm -rf k8s-infra
+            git clone https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/k8s-infra.git
+            cd k8s-infra
     
-  //           sed -i "s/tag: backend-.*/tag: ${BACKEND_TAG}/" charts/workout-stack/values.yaml
-  //           sed -i "s/tag: frontend-.*/tag: ${FRONTEND_TAG}/" charts/workout-stack/values.yaml
-  //           sed -i "s/^appVersion:.*/appVersion: ${CALCULATED_VERSION}/" charts/workout-stack/Chart.yaml
+            sed -i "s/tag: backend-.*/tag: ${BACKEND_TAG}/" charts/workout-stack/values.yaml
+            sed -i "s/tag: frontend-.*/tag: ${FRONTEND_TAG}/" charts/workout-stack/values.yaml
+            sed -i "s/^appVersion:.*/appVersion: ${CALCULATED_VERSION}/" charts/workout-stack/Chart.yaml
     
-  //           git config user.email "ci@jenkins"
-  //           git config user.name "Jenkins"
-  //           git add charts/workout-stack/values.yaml charts/workout-stack/Chart.yaml
-  //           if git diff --cached --quiet; then
-  //             echo "No changes to commit."
-  //           else
-  //             git commit -m "ci: deploy ${BACKEND_TAG}/${FRONTEND_TAG} (${CALCULATED_VERSION}) [skip ci]"
-  //             git push https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/k8s-infra.git main
-  //           fi
-  //         '''
-  //       }
-  //     }
-  //   }
+            git config user.email "ci@jenkins"
+            git config user.name "Jenkins"
+            git add charts/workout-stack/values.yaml charts/workout-stack/Chart.yaml
+            if git diff --cached --quiet; then
+              echo "No changes to commit."
+            else
+              git commit -m "ci: deploy ${BACKEND_TAG}/${FRONTEND_TAG} (${CALCULATED_VERSION}) [skip ci]"
+              git push https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/k8s-infra.git main
+            fi
+          '''
+        }
+      }
+    }
   }
 
   post {
