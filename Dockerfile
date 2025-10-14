@@ -28,6 +28,9 @@ ENV PYTHONUNBUFFERED=1
 # Set the working directory
 WORKDIR /app
 
+# Install CLI tools needed by integration checks
+RUN apk add --no-cache curl jq
+
 # Copy the requirements file and install dependencies
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
