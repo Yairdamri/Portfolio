@@ -220,17 +220,12 @@ pipeline {
     always {
       echo "Final cleanup..."
       sh 'docker compose -f docker-compose.yaml down -v --remove-orphans || true'
-      // archiveArtifacts artifacts: 'artifacts/*.tar', onlyIfSuccessful: false
+      cleanup {
+      cleanWs()
+      }
     }
     success {
       slackSend(message: "✅ Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' succeeded. ${env.BUILD_URL}")
-      withCredentials([usernamePassword(
-        credentialsId   : 'gitlab-git-credentials',
-        usernameVariable: 'GIT_USER',
-        passwordVariable: 'GIT_TOKEN'
-      )]) {
-        // Additional success handling can go here.
-      }
     }
     failure {
       slackSend(message: "❌ Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' failed. ${env.BUILD_URL}")
@@ -240,10 +235,7 @@ pipeline {
     }
     aborted {
       slackSend(message: "🚫 Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' was aborted. ${env.BUILD_URL}")
-    }
-    cleanup {
-      cleanWs()
-    }
+    } 
   }
 }
 
