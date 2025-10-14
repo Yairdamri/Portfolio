@@ -82,33 +82,31 @@ pipeline {
       }
     }
     
-    // stage('E2E Test') {
-    //   when {
-    //     expression { env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') }
-    //   }
-    //   steps {
-    //     sh '''
-    //       set -eu
-    //       echo "Starting E2E environment..."
-    //       docker network inspect cicd-network >/dev/null 2>&1 || docker network create cicd-network
-    //       docker compose -f docker-compose.yaml up -d
-    
-    //       echo "Running E2E script against live stack..."
-    //       docker compose exec -T backend sh -lc '
-    //         python3 --version >/dev/null 2>&1 || apk add --no-cache python3 >/dev/null
-    //         python3 /app/scripts/e2e_test.py --base http://frontend --skip-build
-    //       '
-    //     '''
-    //   }
-    //   post {
-    //     always {
-    //       sh '''
-    //         echo "Cleaning up E2E environment..."
-    //         docker compose -f docker-compose.yaml down -v --remove-orphans >/dev/null 2>&1 || true
-    //       '''
-    //     }
-    //   }
-    // }
+    stage('E2E Test') {
+      when {
+        expression { env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') }
+      }
+      steps {
+        sh '''
+          set -eu
+          echo "Starting E2E environment..."
+          docker network inspect cicd-network >/dev/null 2>&1 || docker network create cicd-network
+          docker compose -f docker-compose.yaml up -d
+
+          echo "Running E2E checks via scripts/e2e_check.sh..."
+          chmod +x scripts/e2e_check.sh || true
+          bash scripts/e2e_check.sh
+        '''
+      }
+      post {
+        always {
+          sh '''
+            echo "Cleaning up E2E environment..."
+            docker compose -f docker-compose.yaml down -v --remove-orphans >/dev/null 2>&1 || true
+          '''
+        }
+      }
+    }
 
   //   stage('Prepare Version') {
   //     when {
