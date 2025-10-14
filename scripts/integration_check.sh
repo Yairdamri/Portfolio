@@ -76,7 +76,9 @@ step "Reading /v1/auth/me with seeded session"
 in_backend "curl -sSf -H '${AUTH_HDR}' http://localhost:8000/v1/auth/me | jq -e '.id == null or .id == .id' >/dev/null"
 
 step "Fetching exercises catalog"
-in_backend "curl -sSf http://localhost:8000/v1/exercises | jq -e '(. | type)==\"array\" and length >= 1' >/dev/null"
+in_backend "curl -sSf http://localhost:8000/v1/exercises \
+  | jq -e '.items | (type == \"array\") and (length >= 1)' >/dev/null"
+
 
 step "Creating plan via POST /v1/plans"
 in_backend "cat >/tmp/plan.json <<'JSON'
