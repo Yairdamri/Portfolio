@@ -109,18 +109,28 @@ step "Listing plans and ensuring new plan is present"
 in_backend "curl -sSf -H '${AUTH_HDR}' http://localhost:8000/v1/plans | jq -e '.items | map(.id) | index(\"'"${PLAN_ID}"'\") != null' >/dev/null"
 
 step "Creating workout completion"
-in_backend "cat >/tmp/complete.json <<'JSON'
+in_backend "cat >/tmp/complete.json <<JSON
 {
-  "plan_id": "${PLAN_ID}",
-  "session_index": 0,
-  "duration_minutes": 30,
-  "logged_exercises": [
-    {"exercise_id":"push_up","sets":[{"reps":12,"weight":0}]}
+  \"plan_id\": \"${PLAN_ID}\",
+  \"session_index\": 0,
+  \"duration_minutes\": 30,
+  \"logged_exercises\": [
+    {
+      \"exercise_id\": \"push_up\",
+      \"sets\": [
+        { \"reps\": 12, \"weight\": 0 }
+      ]
+    }
   ]
 }
 JSON
-sed -i 's/${PLAN_ID}/'"${PLAN_ID}"'/g' /tmp/complete.json
-curl -sSf -X POST http://localhost:8000/v1/workouts/complete -H 'Content-Type: application/json' -H '${AUTH_HDR}' --data-binary @/tmp/complete.json > /tmp/complete.created.json && jq -e '.id' /tmp/complete.created.json >/dev/null"
+status=\$(curl -sS -w '%{http_code}' -o /tmp/complete.created.json -X POST http://localhost:8000/v1/workouts/complete -H 'Content-Type: application/json' -H '${AUTH_HDR}' --data-binary @/tmp/complete.json)
+if [ \"\$status\" != \"201\" ]; then
+  echo \"Completion creation failed with status \$status\" >&2
+  cat /tmp/complete.created.json >&2
+  exit 1
+fi
+jq -e '.id' /tmp/complete.created.json >/dev/null"
 COMPLETION_ID=$(in_backend "jq -r '.id' /tmp/complete.created.json")
 test -n "${COMPLETION_ID}"
 echo "[it] Completion created: ${COMPLETION_ID}"
