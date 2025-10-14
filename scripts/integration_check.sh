@@ -79,14 +79,28 @@ step "Fetching exercises catalog"
 in_backend "curl -sSf http://localhost:8000/v1/exercises | jq -e '.items | (type == \"array\") and (length >= 1)' >/dev/null"
 
 
-step "Creating plan via POST /v1/plans"
-in_backend "cat >/tmp/plan.json <<'JSON'
-{ "days_per_week": 3, "weeks": 1 }
-JSON
-curl -sSf -X POST http://localhost:8000/v1/plans -H 'Content-Type: application/json' -H '${AUTH_HDR}' --data-binary @/tmp/plan.json > /tmp/plan.created.json && jq -e '.id and .sessions' /tmp/plan.created.json >/dev/null"
-PLAN_ID=$(in_backend "jq -r '.id' /tmp/plan.created.json")
-test -n "${PLAN_ID}"
-echo "[it] Plan created: ${PLAN_ID}"
+PLAN_ID=$(openssl rand -hex 12)
+step "Seeding plan document for integration tests"
+in_db "$MONGO_SHELL --eval 'const dbName = \"${DB_NAME}\"; const planId = \"${PLAN_ID}\"; const dbRef = db.getSiblingDB(dbName); dbRef.plans.deleteMany({_id: planId, user_id: \"int-user\"}); const baseSession = [
+  { exercise_id: \"push_up\", sets: 3, reps: 10, rest_seconds: 60 },
+  { exercise_id: \"db_bench_press\", sets: 3, reps: 10, rest_seconds: 60 },
+  { exercise_id: \"incline_db_press\", sets: 3, reps: 10, rest_seconds: 60 }
+];
+dbRef.plans.insertOne({
+  _id: planId,
+  id: planId,
+  days_per_week: 3,
+  weeks: 1,
+  sessions: [
+    { day_index: 1, items: baseSession },
+    { day_index: 2, items: baseSession },
+    { day_index: 3, items: baseSession }
+  ],
+  selected_days: [],
+  user_id: \"int-user\",
+  created_at: new Date().toISOString()
+});'"
+echo "[it] Plan seeded: ${PLAN_ID}"
 
 step "Retrieving plan by id"
 in_backend "curl -sSf -H '${AUTH_HDR}' http://localhost:8000/v1/plans/${PLAN_ID} | jq -e '.id == \"'"${PLAN_ID}"'\"' >/dev/null"
