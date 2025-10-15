@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { CalendarIcon, DumbbellIcon, ClipboardIcon, RefreshIcon, SaveIcon } from './icons'
+import { CalendarIcon, DumbbellIcon, ClipboardIcon, RefreshIcon, SaveIcon, TrashIcon } from './icons'
 
 function buildQuery(params) {
   const sp = new URLSearchParams()
@@ -96,6 +96,35 @@ export default function History({ exercises = [] }) {
     URL.revokeObjectURL(url)
   }
 
+  const deleteWorkout = async (completionId) => {
+    const confirmed = window.confirm('Are you sure you want to delete this workout entry?')
+    if (!confirmed) return
+
+    try {
+      const token = localStorage.getItem('token')
+      const res = await fetch(`/v1/workouts/${completionId}`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.location.hash = '#/login'
+          return
+        }
+        throw new Error(`Failed to delete workout: ${res.status}`)
+      }
+
+      // Remove the deleted item from the UI
+      setData(prev => ({
+        items: prev.items.filter(it => it.completion.id !== completionId),
+        count: prev.count - 1,
+      }))
+    } catch (e) {
+      alert(`Error deleting workout: ${e.message}`)
+    }
+  }
+
   return (
     <section className="card">
       <h2>Workout History</h2>
@@ -168,6 +197,7 @@ export default function History({ exercises = [] }) {
               <th>Reps</th>
               <th>Volume</th>
               <th>Difficulty</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -182,11 +212,22 @@ export default function History({ exercises = [] }) {
                 <td>{it.total_reps}</td>
                 <td>{it.total_volume}</td>
                 <td>{it.difficulty || '-'}</td>
+                <td>
+                  <button 
+                    onClick={() => deleteWorkout(it.completion.id)}
+                    className="action-button secondary"
+                    style={{ padding: '4px 8px', fontSize: '0.85rem' }}
+                    title="Delete this workout"
+                    type="button"
+                  >
+                    <TrashIcon />
+                  </button>
+                </td>
               </tr>
             ))}
             {data.count === 0 && !loading && (
               <tr>
-                <td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-dark)' }}>No results</td>
+                <td colSpan={10} style={{ textAlign: 'center', color: 'var(--text-dark)' }}>No results</td>
               </tr>
             )}
           </tbody>

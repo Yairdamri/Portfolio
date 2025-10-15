@@ -394,7 +394,7 @@ export default function App() {
       </main>
 
       <footer>
-        <small>Develop by Yair Damri...</small>
+        <small>Develop by Yair Damri</small>
       </footer>
     </div>
   )
