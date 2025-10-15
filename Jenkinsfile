@@ -41,6 +41,7 @@ pipeline {
         sh '''
           set -eu
           echo "Running unit tests..."
+          docker run --rm -v "$PWD/reports:/app/reports" backend-test:ci
         '''
       }
     }
