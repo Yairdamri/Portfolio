@@ -10,7 +10,7 @@ pipeline {
     DOCKER_BUILDKIT      = '1'
     IMAGE_BACKEND        = 'workout-backend'
     IMAGE_FRONTEND       = 'workout-frontend'
-    TAG                  = "${BRANCH_NAME}-${BUILD_NUMBER}"
+    TAG                  = "${BRANCH_NAME.replace('/', '-')}-${BUILD_NUMBER}"
     COMPOSE_PROJECT_NAME = "ci-${BUILD_NUMBER}"
     AWS_REGION           = 'ap-south-1'
     ECR_REGISTRY         = '273809175099.dkr.ecr.ap-south-1.amazonaws.com'
