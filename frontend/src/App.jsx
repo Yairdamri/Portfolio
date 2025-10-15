@@ -52,8 +52,6 @@ function useJsonFetcher() {
 
 export default function App() {
   // API hooks
-  const health = useJsonFetcher()
-  const dbping = useJsonFetcher()
   const exercises = useJsonFetcher()
   const createPlan = useJsonFetcher()
   const getPlan = useJsonFetcher()
@@ -126,8 +124,6 @@ export default function App() {
   // Fetch baseline data for dashboard
   useEffect(() => {
     if (route === 'dashboard' && user) {
-      if (!health.data && !health.loading) health.run('/health')
-      if (!dbping.data && !dbping.loading) dbping.run('/v1/db/ping')
       if (!exercises.data && !exercises.loading) exercises.run('/v1/exercises')
       if (!listPlansFx.data && !listPlansFx.loading) listPlansFx.run('/v1/plans')
       // Fetch weekly summary for stats
@@ -339,32 +335,6 @@ export default function App() {
                   plannedWorkoutsPerWeek={generatedPlan?.days_per_week}
                 />
               )}
-            </section>
-
-            <section className="grid two">
-              <div className="card">
-                <h2>System Health</h2>
-                <div className="row">
-                  <button onClick={() => health.run('/health')} disabled={health.loading}>
-                    {health.loading ? 'Checking…' : 'Refresh Health'}
-                  </button>
-                  <span className={`status ${health.error ? 'err' : 'ok'}`}>
-                    {health.error ? `ERR: ${health.error}` : health.data ? `OK (${health.data.status})` : ''}
-                  </span>
-                </div>
-              </div>
-
-              <div className="card">
-                <h2>Database Status</h2>
-                <div className="row">
-                  <button onClick={() => dbping.run('/v1/db/ping')} disabled={dbping.loading}>
-                    {dbping.loading ? 'Pinging…' : 'Ping DB'}
-                  </button>
-                  <span className={`status ${dbping.error ? 'err' : 'ok'}`}>
-                    {dbping.error ? `ERR: ${dbping.error}` : dbping.data ? `OK (db=${dbping.data.db})` : ''}
-                  </span>
-                </div>
-              </div>
             </section>
           </>
         )}
