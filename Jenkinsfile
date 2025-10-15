@@ -10,7 +10,7 @@ pipeline {
     DOCKER_BUILDKIT      = '1'
     IMAGE_BACKEND        = 'workout-backend'
     IMAGE_FRONTEND       = 'workout-frontend'
-    TAG                  = "${BRANCH_NAME.replace('/', '-')}-${BUILD_NUMBER}"
+    TAG                  = "${BRANCH_NAME.replace('/', '-')}-${BUILD_NUMBER}" 
     COMPOSE_PROJECT_NAME = "ci-${BUILD_NUMBER}"
     AWS_REGION           = 'ap-south-1'
     ECR_REGISTRY         = '273809175099.dkr.ecr.ap-south-1.amazonaws.com'
@@ -59,7 +59,7 @@ pipeline {
 
     stage('Integration Test') {
       when {
-        expression { env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') }
+        expression { env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') || env.BRANCH_NAME?.startsWith('hotfix/') || env.BRANCH_NAME?.startsWith('release/') }
       }
       steps {
         sh '''
@@ -85,7 +85,7 @@ pipeline {
     
     stage('E2E Test') {
       when {
-        expression { env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') }
+        expression { env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') || env.BRANCH_NAME?.startsWith('hotfix/') || env.BRANCH_NAME?.startsWith('release/') }
       }
       steps {
         sh '''
@@ -109,9 +109,9 @@ pipeline {
       }
     }
 
-    stage('Prepare Version') {
+    stage('Tag Version') {
       when {
-        branch 'main'
+        expression { env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('hotfix/') || env.BRANCH_NAME?.startsWith('release/') }
       }
       steps {
         script {
@@ -123,7 +123,7 @@ pipeline {
 
     stage('Publish') {
       when {
-        branch 'main'
+        expression { env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('hotfix/') || env.BRANCH_NAME?.startsWith('release/') }
       }
       steps {
         withCredentials([[
@@ -168,7 +168,7 @@ pipeline {
 
     stage('Deploy') {
       when {
-        branch 'main'
+        expression { env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('hotfix/')}
       }
       steps {
         withCredentials([usernamePassword(
@@ -242,7 +242,7 @@ def versionCalculation() {
   }
 
   def latestTag = sh(
-    script      : "git tag --sort=-version:refname | grep -E '^v?[0-9]+\\.[0-9]+\\.[0-9]+' | head -n1 || true",
+    script: "git tag --sort=-version:refname | grep -E '^v?[0-9]+\\.[0-9]+\\.[0-9]+' | head -n1 || true",
     returnStdout: true
   ).trim()
 
@@ -252,11 +252,18 @@ def versionCalculation() {
   def match = versionPattern.matcher(latestTag)
 
   if (latestTag && match.matches()) {
-    echo "Incrementing patch version"
     def major = match.group(1).toInteger()
     def minor = match.group(2).toInteger()
-    def patch = match.group(3).toInteger() + 1
-    env.CALCULATED_VERSION = "v${major}.${minor}.${patch}"
+    def patch = match.group(3).toInteger()
+
+    // Check if this is a release branch - bump minor and reset patch
+    if (env.BRANCH_NAME?.startsWith('release/')) {
+      echo "Release branch detected - bumping minor version and resetting patch to 0"
+      env.CALCULATED_VERSION = "v${major}.${minor + 1}.0"
+    } else {
+      echo "Incrementing patch version"
+      env.CALCULATED_VERSION = "v${major}.${minor}.${patch + 1}"
+    }
   } else {
     echo "No existing tags or unrecognized format. Setting version to v1.0.0"
     env.CALCULATED_VERSION = "v1.0.0"
