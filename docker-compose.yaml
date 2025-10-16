@@ -16,6 +16,7 @@ services:
     restart: unless-stopped
     networks:
       - backend.network
+      - cicd-network
       - frontend.network
 
   frontend:
@@ -30,6 +31,7 @@ services:
     restart: unless-stopped
     networks:
       - frontend.network
+      - cicd-network
 
   db:
     image: mongo:latest
@@ -52,3 +54,6 @@ networks:
   frontend.network:
     name: frontend.network
     driver: bridge
+
+  cicd-network:
+    external: true

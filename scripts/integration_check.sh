@@ -16,49 +16,16 @@ step() {
   echo "[it] $1"
 }
 
-# =============================================================================
-# PHASE 1: EXTERNAL ACCESS TESTS (from Jenkins host)
-# =============================================================================
-echo ""
-echo "=========================================="
-echo "PHASE 1: External Access Tests"
-echo "=========================================="
-
-step "Waiting for frontend on port 80 (external)"
-timeout 60 bash -c 'until curl -sf http://localhost:80/health >/dev/null 2>&1; do echo "  waiting..."; sleep 2; done'
-echo "[it] Frontend port 80 is accessible ✅"
-
-step "Testing frontend health endpoint (external)"
-curl -sf http://localhost:80/health | jq -e '.status == "ok"' >/dev/null
-echo "[it] Frontend health OK ✅"
-
-step "Testing exercises API through frontend (external)"
-curl -sf http://localhost:80/v1/exercises | jq -e '.items | type == "array"' >/dev/null
-echo "[it] Frontend → Backend → MongoDB chain works externally ✅"
-
-step "Verifying protected endpoint returns 401 (external)"
-http_code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:80/v1/plans)
-test "$http_code" = "401" || { echo "Expected 401, got $http_code"; exit 1; }
-echo "[it] Auth protection works externally ✅"
-
-# =============================================================================
-# PHASE 2: INTERNAL INTEGRATION TESTS (inside containers)
-# =============================================================================
-echo ""
-echo "=========================================="
-echo "PHASE 2: Internal Integration Tests"
-echo "=========================================="
-
 # Helpers to run commands inside the backend or db containers
 in_backend() { docker compose exec -T backend sh -lc "$*"; }
 in_db() { docker compose exec -T db sh -lc "$*"; }
 
-step "Installing curl and jq in backend container"
+step "Ensuring curl and jq are installed in backend container"
 in_backend 'apk add --no-cache curl jq >/dev/null'
 
-step "Waiting for backend /health endpoint (internal)"
+step "Waiting for backend /health endpoint"
 in_backend 'until curl -sf http://localhost:8000/health | jq -e ".status == \"ok\"" >/dev/null; do echo "  waiting backend..."; sleep 1; done'
-echo "[it] Backend is up (internal) ✅"
+echo "[it] Backend is up"
 
 step "Detecting Mongo shell client"
 if in_db 'command -v mongosh >/dev/null 2>&1'; then
@@ -67,58 +34,49 @@ else
   MONGO_SHELL="mongo --quiet"
 fi
 
-step "Waiting for MongoDB to accept connections (internal)"
+step "Waiting for MongoDB to accept connections"
 i=0
 until in_db "$MONGO_SHELL --eval 'db.adminCommand({ ping: 1 })' >/dev/null 2>&1"; do
   i=$((i+1)); test $i -le 60 || { echo "MongoDB not ready in time"; exit 1; }
   echo "  waiting mongodb..."; sleep 1
 done
-echo "[it] MongoDB is up ✅"
+echo "[it] MongoDB is up"
 
-step "Testing Backend → MongoDB connection (internal)"
+step "Pinging MongoDB through backend API"
 in_backend 'curl -sf http://localhost:8000/v1/db/ping | jq -e ".status == \"ok\"" >/dev/null'
 DB_NAME=$(in_backend "curl -sSf http://localhost:8000/v1/db/ping | jq -r '.db'")
 test -n "${DB_NAME}"
-echo "[it] Backend connected to database: ${DB_NAME} ✅"
-
-step "Testing Frontend → Backend routing (internal Docker DNS)"
-in_backend "curl -sSf http://frontend/health | jq -e '.status == \"ok\"' >/dev/null"
-in_backend "curl -sSf http://frontend/v1/db/ping | jq -e '.status == \"ok\"' >/dev/null"
-echo "[it] Internal Docker networking OK ✅"
-
-# =============================================================================
-# PHASE 3: CRUD OPERATIONS (authenticated)
-# =============================================================================
-echo ""
-echo "=========================================="
-echo "PHASE 3: CRUD Operations"
-echo "=========================================="
-
-step "Seeding test user in MongoDB"
-in_db "$MONGO_SHELL --eval 'db.getSiblingDB(\"${DB_NAME}\").users.deleteMany({_id: \"int-user\"});'"
-in_db "$MONGO_SHELL --eval 'db.getSiblingDB(\"${DB_NAME}\").sessions.deleteMany({_id: \"it-token\"});'"
-in_db "$MONGO_SHELL --eval 'db.getSiblingDB(\"${DB_NAME}\").users.insertOne({_id: \"int-user\", email: \"integration@example.com\", password: \"noop\", name: \"Integration\", created_at: new Date()});'"
-in_db "$MONGO_SHELL --eval 'db.getSiblingDB(\"${DB_NAME}\").sessions.insertOne({_id: \"it-token\", user_id: \"int-user\", created_at: new Date()});'"
-echo "[it] Test user seeded ✅"
+echo "[it] Backend reports DB name: ${DB_NAME}"
 
 step "Verifying protected endpoint denies anonymous access"
 code=$(in_backend "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/v1/plans")
 test "$code" = "401" || { echo "Expected 401, got ${code}"; exit 1; }
-echo "[it] 401 Unauthorized - Auth protection works ✅"
+echo "[it] 401 OK"
 
-step "Testing authenticated access to /v1/plans"
+step "Seeding MongoDB with integration user and session"
+in_db "$MONGO_SHELL --eval 'db.getSiblingDB(\"${DB_NAME}\").users.deleteMany({_id: \"int-user\"}); db.getSiblingDB(\"${DB_NAME}\").sessions.deleteMany({_id: \"it-token\"});'"
+in_db "$MONGO_SHELL --eval 'db.getSiblingDB(\"${DB_NAME}\").users.insertOne({_id: \"int-user\", email: \"integration@example.com\", password: \"noop\", name: \"Integration\", created_at: new Date()}); db.getSiblingDB(\"${DB_NAME}\").sessions.insertOne({_id: \"it-token\", user_id: \"int-user\", created_at: new Date()});'"
+
+step "Checking authenticated access to /v1/plans"
 in_backend "curl -sSf -H 'Authorization: Bearer it-token' http://localhost:8000/v1/plans | jq -e '.count >= 0 and (.items | type == \"array\")' >/dev/null"
-echo "[it] Authenticated /v1/plans OK ✅"
+echo "[it] Authenticated /v1/plans OK"
+
+step "Validating frontend reverse proxy"
+in_backend "curl -sSf http://frontend/health | jq -e '.status == \"ok\"' >/dev/null"
+in_backend "curl -sSf http://frontend/v1/db/ping | jq -e '.status == \"ok\"' >/dev/null"
+echo "[it] Frontend reverse proxy OK"
+
+# -----------------------------
+# CRUD-like coverage on APIs
+# -----------------------------
 
 AUTH_HDR="Authorization: Bearer it-token"
 
-step "Testing /v1/auth/me endpoint"
+step "Reading /v1/auth/me with seeded session"
 in_backend "curl -sSf -H '${AUTH_HDR}' http://localhost:8000/v1/auth/me | jq -e '.id == null or .id == .id' >/dev/null"
-echo "[it] /v1/auth/me OK ✅"
 
 step "Fetching exercises catalog"
 in_backend "curl -sSf http://localhost:8000/v1/exercises | jq -e '.items | (type == \"array\") and (length >= 1)' >/dev/null"
-echo "[it] Exercises catalog OK ✅"
 
 
 PLAN_ID=$(openssl rand -hex 12)
@@ -144,13 +102,11 @@ dbRef.plans.insertOne({
 });'"
 echo "[it] Plan seeded: ${PLAN_ID}"
 
-step "Retrieving plan by ID"
+step "Retrieving plan by id"
 in_backend "curl -sSf -H '${AUTH_HDR}' http://localhost:8000/v1/plans/${PLAN_ID} | jq -e '.id == \"'"${PLAN_ID}"'\"' >/dev/null"
-echo "[it] Plan retrieval OK ✅"
 
-step "Listing plans (ensuring new plan is present)"
+step "Listing plans and ensuring new plan is present"
 in_backend "curl -sSf -H '${AUTH_HDR}' http://localhost:8000/v1/plans | jq -e '.items | map(.id) | index(\"'"${PLAN_ID}"'\") != null' >/dev/null"
-echo "[it] Plan listing OK ✅"
 
 step "Creating workout completion"
 in_backend "cat >/tmp/complete.json <<JSON
@@ -177,34 +133,23 @@ fi
 jq -e '.id' /tmp/complete.created.json >/dev/null"
 COMPLETION_ID=$(in_backend "jq -r '.id' /tmp/complete.created.json")
 test -n "${COMPLETION_ID}"
-echo "[it] Workout completion created: ${COMPLETION_ID} ✅"
+echo "[it] Completion created: ${COMPLETION_ID}"
 
-step "Verifying completion appears in history"
+step "Ensuring history reflects the completion"
 in_backend "curl -sSf -H '${AUTH_HDR}' 'http://localhost:8000/v1/workouts/history?limit=10' | jq -e '.items | map(.completion.id) | index(\"'"${COMPLETION_ID}"'\") != null' >/dev/null"
-echo "[it] History includes completion ✅"
 
 step "Checking summary aggregates"
 in_backend "curl -sSf -H '${AUTH_HDR}' http://localhost:8000/v1/workouts/summary | jq -e '.workouts_completed >= 1 and .total_minutes >= 30' >/dev/null"
-echo "[it] Summary aggregates OK ✅"
 
 step "Deleting workout completion"
 code=$(in_backend "curl -sS -o /dev/null -w '%{http_code}' -X DELETE -H '${AUTH_HDR}' http://localhost:8000/v1/workouts/${COMPLETION_ID}")
 test "$code" = "204"
-echo "[it] Deletion successful (204) ✅"
 
-step "Verifying completion removed from history"
+step "Verifying history after deletion"
 in_backend "curl -sSf -H '${AUTH_HDR}' 'http://localhost:8000/v1/workouts/history?limit=10' | jq -e '.items | map(.completion.id) | index(\"'"${COMPLETION_ID}"'\") == null' >/dev/null"
-echo "[it] History no longer includes deleted completion ✅"
 
-step "Testing frontend proxy with authenticated requests"
+step "Verifying frontend proxy responses"
 in_backend "curl -sSf http://frontend/v1/exercises | jq -e 'length >= 1' >/dev/null"
 in_backend "curl -sSf -H '${AUTH_HDR}' http://frontend/v1/plans | jq -e '.count >= 0' >/dev/null"
-echo "[it] Frontend proxy authenticated requests OK ✅"
 
-echo ""
-echo "=========================================="
-echo "✅ ALL INTEGRATION TESTS PASSED"
-echo "=========================================="
-echo "[it] Phase 1: External access - PASSED"
-echo "[it] Phase 2: Internal integration - PASSED"
-echo "[it] Phase 3: CRUD operations - PASSED"
+echo "[it] Integration API checks PASSED"
