@@ -25,50 +25,32 @@ pipeline {
         checkout scm
       }
     }
-
+ 
     stage('Build Test Image') {
       steps {
-        sh '''
-          set -eu
-          echo "Building lightweight test image..."
-          docker build -f Dockerfile.test -t backend-test:ci .
-        '''
+        sh 'docker build -f Dockerfile.test -t backend-test:ci .'
       }
     }
 
     stage('Unit Tests') {
       steps {
-        sh '''
-          set -eu
-          echo "Running unit tests..."
-          docker run --rm -v "$PWD/reports:/app/reports" backend-test:ci
-        '''
+        sh 'docker run --rm -v "$PWD/reports:/app/reports" backend-test:ci'
       }
     }
 
     stage('Package') {
       steps {
-        sh '''
-          set -eu
-          echo "Building production Docker images..."
-          docker build -t ${IMAGE_BACKEND}:${TAG} .
-          docker build -t ${IMAGE_FRONTEND}:${TAG} ./frontend
-        '''
-      }
+        sh 'docker build -t ${IMAGE_BACKEND}:${TAG} .'
+        sh 'docker build -t ${IMAGE_FRONTEND}:${TAG} ./frontend'
+      } 
     }
 
-    stage('Integration Test') {
-      when {
-        expression { env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') || env.BRANCH_NAME?.startsWith('hotfix/') || env.BRANCH_NAME?.startsWith('release/') }
-      }
+    stage('Integration Test') { 
       steps {
         sh '''
-          set -eu
-          echo "Starting integration test environment..."
           docker network inspect cicd-network >/dev/null 2>&1 || docker network create cicd-network
           docker compose -f docker-compose.yaml up -d
 
-          echo "Running integration checks via scripts/integration_check.sh..."
           chmod +x scripts/integration_check.sh || true
           bash scripts/integration_check.sh
         '''
@@ -84,30 +66,16 @@ pipeline {
     }
     
     stage('E2E Test') {
-      when {
-        expression { env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') || env.BRANCH_NAME?.startsWith('hotfix/') || env.BRANCH_NAME?.startsWith('release/') }
-      }
       steps {
         sh '''
           set -eu
-          echo "Starting E2E environment..."
-          docker network inspect cicd-network >/dev/null 2>&1 || docker network create cicd-network
-          docker compose -f docker-compose.yaml up -d
+          // docker network inspect cicd-network >/dev/null 2>&1 || docker network create cicd-network
+          // docker compose -f docker-compose.yaml up -d
 
-          echo "Running E2E checks via scripts/e2e_check.sh..."
           chmod +x scripts/e2e_check.sh || true
           bash scripts/e2e_check.sh
         '''
       }
-      post {
-        always {
-          sh '''
-            echo "Cleaning up E2E environment..."
-            docker compose -f docker-compose.yaml down -v --remove-orphans >/dev/null 2>&1 || true
-          '''
-        }
-      }
-    }
 
     stage('Tag Version') {
       when {
@@ -209,6 +177,7 @@ pipeline {
     always {
       echo "Final cleanup..."
       sh 'docker compose -f docker-compose.yaml down -v --remove-orphans || true'
+      cleanWs()
     }
     success {
       slackSend(message: "✅ Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' succeeded. ${env.BUILD_URL}")
@@ -216,14 +185,11 @@ pipeline {
     failure {
       slackSend(message: "❌ Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' failed. ${env.BUILD_URL}")
     }
-    unstable {
-      slackSend(message: "⚠️ Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' is unstable. ${env.BUILD_URL}")
-    }
+    // unstable {
+    //   slackSend(message: "⚠️ Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' is unstable. ${env.BUILD_URL}")
+    // }
     aborted {
       slackSend(message: "🚫 Job '${env.JOB_NAME} [#${env.BUILD_NUMBER}]' was aborted. ${env.BUILD_URL}")
-    }
-    cleanup {
-      cleanWs()
     }
   }
 }
