@@ -10,7 +10,7 @@ pipeline {
     DOCKER_BUILDKIT      = '1'
     IMAGE_BACKEND        = 'workout-backend'
     IMAGE_FRONTEND       = 'workout-frontend'
-    TAG                  = "${BRANCH_NAME.replace('/', '-')}-${BUILD_NUMBER}" 
+    TAG                  = "${BRANCH_NAME.replace('/', '-')}-${BUILD_NUMBER}"
     AWS_REGION           = 'ap-south-1'
     ECR_REGISTRY         = '273809175099.dkr.ecr.ap-south-1.amazonaws.com'
     ECR_URI              = '273809175099.dkr.ecr.ap-south-1.amazonaws.com/dev_protfolio'
@@ -58,7 +58,7 @@ pipeline {
         '''
       }
     }
-    
+
     stage('E2E Test') {
       when {
         expression { env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') }
@@ -78,27 +78,16 @@ pipeline {
       steps {
         script {
           versionCalculationAndTag()
-          echo "Published version: ${env.CALCULATED_VERSION}"
+          echo "Version: ${env.CALCULATED_VERSION}"
         }
 
         withCredentials([[
           $class       : 'AmazonWebServicesCredentialsBinding',
           credentialsId: 'aws-jenkins-creds'
         ]]) {
-          sh '''
-            aws ecr get-login-password --region "${AWS_REGION}" \
-              | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
-
-            docker tag "${IMAGE_BACKEND}:${TAG}"    "${ECR_URI}:backend-${CALCULATED_VERSION}"
-            docker tag "${IMAGE_FRONTEND}:${TAG}"   "${ECR_URI}:frontend-${CALCULATED_VERSION}"
-            docker tag "${IMAGE_BACKEND}:${TAG}"    "${ECR_URI}:backend-latest"
-            docker tag "${IMAGE_FRONTEND}:${TAG}"   "${ECR_URI}:frontend-latest"
-
-            docker push "${ECR_URI}:backend-${CALCULATED_VERSION}"
-            docker push "${ECR_URI}:frontend-${CALCULATED_VERSION}"
-            docker push "${ECR_URI}:backend-latest"
-            docker push "${ECR_URI}:frontend-latest"
-          '''
+          script {
+            publishToECR()
+          }
         }
       }
     }
@@ -118,15 +107,15 @@ pipeline {
 
             BACKEND_TAG=backend-${CALCULATED_VERSION}
             FRONTEND_TAG=frontend-${CALCULATED_VERSION}
-    
+
             rm -rf k8s-infra
             git clone https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/yair_portfolio/k8s-infra.git
             cd k8s-infra
-    
+
             sed -i "s/tag: backend-.*/tag: ${BACKEND_TAG}/" charts/workout-stack/values.yaml
             sed -i "s/tag: frontend-.*/tag: ${FRONTEND_TAG}/" charts/workout-stack/values.yaml
             sed -i "s/^appVersion:.*/appVersion: ${CALCULATED_VERSION}/" charts/workout-stack/Chart.yaml
-    
+
             git config user.email "ci@jenkins"
             git config user.name "Jenkins"
             
@@ -170,37 +159,53 @@ def versionCalculationAndTag() {
       git fetch --tags --quiet || true
     '''
     
-    // Calculate version
+    // Calculate version - simplified
     def latestTag = sh(
-      script: "git tag --sort=-version:refname | grep -E '^v?[0-9]+\\.[0-9]+\\.[0-9]+' | head -n1 || true",
+      script: "git tag --sort=-version:refname | grep -E '^v?[0-9]+\\.[0-9]+\\.[0-9]+' | head -n1 || echo ''",
       returnStdout: true
     ).trim()
 
-    echo "Latest tag: ${latestTag}"
-
-    def versionPattern = ~/^v?(\d+)\.(\d+)\.(\d+)$/
-    def match = versionPattern.matcher(latestTag)
-
-    if (latestTag && match.matches()) {
-      def major = match.group(1).toInteger()
-      def minor = match.group(2).toInteger()
-      def patch = match.group(3).toInteger()
+    if (latestTag && latestTag ==~ /^v?(\d+)\.(\d+)\.(\d+)$/) {
+      // Extract and increment immediately (no Matcher object stored)
+      def parts = (latestTag =~ /^v?(\d+)\.(\d+)\.(\d+)$/)[0]
+      def major = parts[1].toInteger()
+      def minor = parts[2].toInteger()
+      def patch = parts[3].toInteger()
       
       env.CALCULATED_VERSION = "v${major}.${minor}.${patch + 1}"
-      echo "Incrementing patch version to ${env.CALCULATED_VERSION}"
+      echo "📦 ${latestTag} → ${env.CALCULATED_VERSION}"
     } else {
       env.CALCULATED_VERSION = "v1.0.0"
-      echo "No existing tags, starting at v1.0.0"
+      echo "📦 No tags found, starting at v1.0.0"
     }
     
     // Tag and push Git repo
     sh """
-      git config user.email "yairdamri48@gmail.com"
-      git config user.name "yairdamri48"
+      git config user.email "Jenkins@jenkins"
+      git config user.name "Jenkins"
       git tag -f ${env.CALCULATED_VERSION}
       git push --force https://\${GIT_USER}:\${GIT_TOKEN}@gitlab.com/yair_portfolio/workout-gen ${env.CALCULATED_VERSION}
     """
     
-    echo "✅ Tagged Git repository with ${env.CALCULATED_VERSION}"
+    echo "✅ Tagged: ${env.CALCULATED_VERSION}"
   }
+}
+
+def publishToECR() {
+  sh """
+    aws ecr get-login-password --region ${AWS_REGION} | \
+      docker login --username AWS --password-stdin ${ECR_REGISTRY}
+
+    docker tag ${IMAGE_BACKEND}:${TAG} ${ECR_URI}:backend-${CALCULATED_VERSION}
+    docker tag ${IMAGE_BACKEND}:${TAG} ${ECR_URI}:backend-latest
+    docker tag ${IMAGE_FRONTEND}:${TAG} ${ECR_URI}:frontend-${CALCULATED_VERSION}
+    docker tag ${IMAGE_FRONTEND}:${TAG} ${ECR_URI}:frontend-latest
+
+    docker push ${ECR_URI}:backend-${CALCULATED_VERSION}
+    docker push ${ECR_URI}:backend-latest
+    docker push ${ECR_URI}:frontend-${CALCULATED_VERSION}
+    docker push ${ECR_URI}:frontend-latest
+  """
+  
+  echo "✅ Published to ECR: ${CALCULATED_VERSION}"
 }
