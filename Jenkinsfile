@@ -68,10 +68,6 @@ pipeline {
     stage('E2E Test') {
       steps {
         sh '''
-          set -eu
-          // docker network inspect cicd-network >/dev/null 2>&1 || docker network create cicd-network
-          // docker compose -f docker-compose.yaml up -d
-
           chmod +x scripts/e2e_check.sh || true
           bash scripts/e2e_check.sh
         '''
