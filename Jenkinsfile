@@ -50,9 +50,7 @@ pipeline {
       }
       steps {
         sh '''
-          docker network inspect cicd-network >/dev/null 2>&1 || docker network create cicd-network
           docker compose -f docker-compose.yaml up -d
-
           chmod +x scripts/integration_check.sh || true
           bash scripts/integration_check.sh
         '''

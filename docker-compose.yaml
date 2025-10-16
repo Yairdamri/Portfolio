@@ -1,8 +1,9 @@
-
 services:
   backend:
     image: ${IMAGE_BACKEND:-workout-backend}:${TAG:-latest}
-    # Internal only; nginx (frontend) will reverse proxy to this
+    build:
+      context: .
+      dockerfile: Dockerfile
     expose:
       - "8000"
     environment:
@@ -15,11 +16,13 @@ services:
     restart: unless-stopped
     networks:
       - backend.network
-      - cicd-network
       - frontend.network
 
   frontend:
     image: ${IMAGE_FRONTEND:-workout-frontend}:${TAG:-latest}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     ports:
       - "80:80"
     depends_on:
@@ -27,17 +30,14 @@ services:
     restart: unless-stopped
     networks:
       - frontend.network
-      - cicd-network
 
   db:
     image: mongo:latest
-    # Internal access only from backend
     ports:
       - "27017"
     volumes:
       - mongo_data:/data/db
     restart: unless-stopped
-
     networks:
       - backend.network
 
@@ -52,6 +52,3 @@ networks:
   frontend.network:
     name: frontend.network
     driver: bridge
-
-  cicd-network:
-    external: true
