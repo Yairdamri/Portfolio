@@ -25,7 +25,7 @@ pipeline {
         checkout scm
       }
     }
- 
+
     stage('Build Test Image') {
       steps {
         sh 'docker build -f Dockerfile.test -t backend-test:ci .'
@@ -42,10 +42,10 @@ pipeline {
       steps {
         sh 'docker build -t ${IMAGE_BACKEND}:${TAG} .'
         sh 'docker build -t ${IMAGE_FRONTEND}:${TAG} ./frontend'
-      } 
+      }
     }
 
-    stage('Integration Test') { 
+    stage('Integration Test') {
       steps {
         sh '''
           docker network inspect cicd-network >/dev/null 2>&1 || docker network create cicd-network
@@ -76,6 +76,7 @@ pipeline {
           bash scripts/e2e_check.sh
         '''
       }
+    }
 
     stage('Tag Version') {
       when {
