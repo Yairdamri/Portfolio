@@ -173,10 +173,10 @@ def versionCalculationAndTag() {
       def patch = parts[3].toInteger()
       
       env.CALCULATED_VERSION = "v${major}.${minor}.${patch + 1}"
-      echo "📦 ${latestTag} → ${env.CALCULATED_VERSION}"
+      echo "${latestTag} → ${env.CALCULATED_VERSION}"
     } else {
       env.CALCULATED_VERSION = "v1.0.0"
-      echo "📦 No tags found, starting at v1.0.0"
+      echo "No tags found, starting at v1.0.0"
     }
     
     // Tag and push Git repo
