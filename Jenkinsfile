@@ -55,14 +55,14 @@ pipeline {
           bash scripts/integration_check.sh
         '''
       }
-      post {
-        always {
-          sh '''
-            echo "Cleaning up integration test environment..."
-            docker compose -f docker-compose.yaml down -v --remove-orphans >/dev/null 2>&1 || true
-          '''
-        }
-      }
+      // post {
+      //   always {
+      //     sh '''
+      //       echo "Cleaning up integration test environment..."
+      //       docker compose -f docker-compose.yaml down -v --remove-orphans >/dev/null 2>&1 || true
+      //     '''
+      //   }
+      // }
     }
     
     stage('E2E Test') {
