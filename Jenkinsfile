@@ -207,5 +207,5 @@ def publishToECR() {
     docker push ${ECR_URI}:frontend-latest
   """
   
-  echo "✅ Published to ECR: ${CALCULATED_VERSION}"
+  echo "✅ Published to ECR.: ${CALCULATED_VERSION}"
 }
