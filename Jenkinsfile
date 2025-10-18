@@ -51,9 +51,6 @@ pipeline {
       steps {
         withCredentials([string(credentialsId: 'mongo-uri', variable: 'MONGO_URI')]) {
           sh '''
-            # Clean up any leftover networks from previous external: true config
-            docker network rm backend.network frontend.network 2>/dev/null || true
-            
             export MONGO_URI="${MONGO_URI}"
             docker compose -f docker-compose.yaml up -d
 
