@@ -26,6 +26,9 @@ pipeline {
     }
 
     stage('Build Test Image') {
+      withCredentials([file(credentialsId: 'Env', variable: 'ENV_FILE')]) {
+            sh 'install -m 600 "$ENV_FILE" .env'
+          }
       steps {
         sh 'docker build -f Dockerfile.test -t backend-test:ci .'
       }

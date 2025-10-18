@@ -1,5 +1,5 @@
 # Environment configuration for local/dev
 # The app reads these in main.py via python-dotenv
 
-MONGO_URI=mongodb://db:27017/
-MONGO_DB_NAME=mydatabase
+# MONGO_URI=mongodb://db:27017/
+# MONGO_DB_NAME=mydatabase
