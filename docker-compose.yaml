@@ -9,14 +9,13 @@ services:
     environment:
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
-    env_file:
-      - .env
+      - MONGO_URI=${MONGO_URI:-mongodb://db:27017/}
+      - MONGO_DB_NAME=${MONGO_DB_NAME:-mydatabase}
     depends_on:
       - db
     restart: unless-stopped
     networks:
       - backend.network
-      - cicd-network
       - frontend.network
 
   frontend:
@@ -31,7 +30,6 @@ services:
     restart: unless-stopped
     networks:
       - frontend.network
-      - cicd-network
 
   db:
     image: mongo:latest
@@ -55,5 +53,5 @@ networks:
     name: frontend.network
     driver: bridge
 
-  cicd-network:
-    external: true
+  # cicd-network:
+  #   external: true

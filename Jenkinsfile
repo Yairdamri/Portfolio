@@ -27,9 +27,6 @@ pipeline {
 
     stage('Build Test Image') {
       steps {
-        withCredentials([file(credentialsId: 'Env', variable: 'ENV_FILE')]) {
-          sh 'install -m 600 "$ENV_FILE" .env'
-        }
         sh 'docker build -f Dockerfile.test -t backend-test:ci .'
       }
     }
@@ -52,13 +49,16 @@ pipeline {
         expression { env.BRANCH_NAME == 'main' || env.BRANCH_NAME?.startsWith('feature/') }
       }
       steps {
-        sh '''
-          docker network inspect cicd-network >/dev/null 2>&1 || docker network create cicd-network
-          docker compose -f docker-compose.yaml up -d
+        withCredentials([string(credentialsId: 'mongo-uri', variable: 'MONGO_URI')]) {
+          sh '''
+            docker network inspect cicd-network >/dev/null 2>&1 || docker network create cicd-network
+            export MONGO_URI="${MONGO_URI}"
+            docker compose -f docker-compose.yaml up -d
 
-          chmod +x scripts/integration_check.sh || true
-          bash scripts/integration_check.sh
-        '''
+            chmod +x scripts/integration_check.sh || true
+            bash scripts/integration_check.sh
+          '''
+        }
       }
     }
 
