@@ -47,11 +47,8 @@ volumes:
 networks:
   backend.network:
     name: backend.network
-    driver: bridge
+    external: true
 
   frontend.network:
     name: frontend.network
-    driver: bridge
-
-  cicd-network:
     external: true
