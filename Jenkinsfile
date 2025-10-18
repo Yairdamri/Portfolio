@@ -51,7 +51,6 @@ pipeline {
       steps {
         withCredentials([string(credentialsId: 'mongo-uri', variable: 'MONGO_URI')]) {
           sh '''
-            docker network inspect frontend.network >/dev/null 2>&1 || docker network create frontend.network
             export MONGO_URI="${MONGO_URI}"
             docker compose -f docker-compose.yaml up -d
 
