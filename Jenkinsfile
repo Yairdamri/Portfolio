@@ -53,6 +53,15 @@ pipeline {
           sh '''
             export MONGO_URI="${MONGO_URI}"
             docker compose -f docker-compose.yaml up -d
+            
+            echo "=== Checking container status ==="
+            docker compose ps
+            
+            echo "=== Backend logs (last 50 lines) ==="
+            docker compose logs --tail=50 backend
+            
+            echo "=== DB logs (last 30 lines) ==="
+            docker compose logs --tail=30 db
 
             chmod +x scripts/integration_check.sh || true
             bash scripts/integration_check.sh
