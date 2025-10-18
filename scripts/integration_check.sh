@@ -24,7 +24,19 @@ step "Ensuring curl and jq are installed in backend container"
 in_backend 'apk add --no-cache curl jq >/dev/null'
 
 step "Waiting for backend /health endpoint"
-in_backend 'until curl -sf http://localhost:8000/health | jq -e ".status == \"ok\"" >/dev/null; do echo "  waiting backend..."; sleep 1; done'
+timeout=60
+i=0
+until in_backend 'curl -sf http://localhost:8000/health | jq -e ".status == \"ok\"" >/dev/null 2>&1'; do
+  i=$((i+1))
+  if [ $i -ge $timeout ]; then
+    echo "[it] ERROR: Backend /health endpoint not ready after ${timeout}s" >&2
+    echo "[it] Backend logs:" >&2
+    docker compose logs --tail=100 backend >&2
+    exit 1
+  fi
+  echo "  waiting backend... (${i}/${timeout}s)"
+  sleep 1
+done
 echo "[it] Backend is up"
 
 step "Detecting Mongo shell client"
