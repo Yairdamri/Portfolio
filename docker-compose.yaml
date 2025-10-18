@@ -53,5 +53,5 @@ networks:
     name: frontend.network
     driver: bridge
 
-  # cicd-network:
-  #   external: true
+  cicd-network:
+    external: true
