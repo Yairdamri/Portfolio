@@ -1,96 +1,77 @@
-Working version notification post stage
+# Workout Generator & Tracker Portfolio
 
-Commands to know 
-helm install [RELEASE_NAME] oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
+Full-stack fitness platform demonstrating application delivery, GitOps, and infrastructure automation
 
+## Quick Links
 
+- Backend FastAPI app → `app/`
+- Frontend React SPA → `frontend/`
+- Terraform infrastructure → `infra/`
+- Helm charts for Kubernetes → `k8s/`
+- ArgoCD GitOps definitions → `argocd/`
+- Test & automation scripts → `scripts/`, `tests/`
 
-portf-forward
+## Overview
 
-grafana
-kubectl -n monitoring port-forward svc/prometheus-stack-grafana 3000:80
+The system generates personalized workout plans, tracks training history, and surfaces live metrics. It pairs a FastAPI backend and React frontend with MongoDB, packaged for local Docker Compose, CI/CD via Jenkins, GitOps releases through ArgoCD, and AWS-hosted Kubernetes managed with Terraform.
 
-promethues
-kubectl -n monitoring port-forward svc/prometheus-stack-kube-prom-prometheus 9090:9090
+## Architecture
 
+- ![Complete portfolio architecture](images/Complete Architercture.png) — End-to-end view of app tiers, CI/CD, GitOps, and cloud resources.
+- ![Jenkins pipeline](images/Pipeline.png) — Build/test/publish/deploy stages run by Jenkins.
+- ![Cluster architecture](images/Cluster.png) — AWS EKS cluster layout, node groups, and supporting services.
+- ![Monitoring stack](images/monitoring.png) — Prometheus, Grafana, ELK, and alerting flows.
+- ![Docker Compose microservices](images/Microservices.png) — Local development topology for backend, frontend, and MongoDB.
 
+## Repository Map
 
-dashboard premetues
+| Area | Path | Highlights |
+| --- | --- | --- |
+| Backend API | `app/` | FastAPI, Pydantic models, workout planner, MongoDB access, structured logging |
+| Frontend SPA | `frontend/` | React + Vite UI, auth flows, workout dashboards, NGINX reverse proxy |
+| Infrastructure as Code | `infra/` | Terraform modules for VPC, EKS, IAM, storage, optional ArgoCD |
+| Kubernetes Manifests | `k8s/` | Helm charts (`workout-app`, `workout-frontend`, umbrella `workout-stack`) |
+| GitOps | `argocd/` | App-of-Apps parents, application sets, logging stack, SealedSecrets |
+| Automation Scripts | `scripts/` | Integration and end-to-end flows against docker-compose stack |
+| Testing | `tests/` | Pytest suite for planner/services logic |
+| Visuals | `images/` | Architecture, pipeline, monitoring, and docker-compose diagrams |
 
-CPU Utilization per Node (%)
+## Component Highlights
 
+### Backend (`app/`)
+- Auth with PBKDF2 hashing and Mongo-backed sessions.
+- Plan generation, workout completion logging, weekly summaries, and history filters.
+- Request/response observability via `app/middleware.py` and business metrics logger.
 
+### Frontend (`frontend/`)
+- Hash-based routing, client-side auth persistence, workout creation and tracking UI.
+- Shared JSON fetcher handles token management and error routing.
+- Built with Vite, tested with Vitest, served behind NGINX proxy.
 
+## Local Development
 
-to destroy 
-cd infra/environments/dev
-terraform state list | grep -E 'kubernetes|helm_release'
-terraform state rm 'module.argocd[0].kubernetes_namespace.this'
-terraform state rm 'module.argocd[0].helm_release.argocd'
-terraform state rm 'module.ebs_csi[0].kubernetes_storage_class_v1.default[0]'
-terraform state rm 'module.eks_auth[0].kubernetes_config_map_v1_data.aws_auth[0]'
-terraform destroy
+1. Copy `env-example` to `.env` and set `MONGO_URI`, `MONGO_DB_NAME`.
+2. Start services: `docker compose up --build`.
+3. Visit `http://localhost` for the SPA, `http://localhost/docs` for API docs, `http://localhost/health` for health checks.
+4. Run unit tests: `docker build -f Dockerfile.test -t backend-test . && docker run --rm backend-test`.
 
+## Deployment Flow
 
+- Jenkins pipeline (see `Jenkinsfile`) builds test image, runs unit/integration/E2E checks, packages backend + frontend, pushes versioned tags to ECR, and bumps downstream Helm chart refs.
+- ![Jenkins pipeline](images/Pipeline.png) provides the stage breakdown and artifact hand-offs.
 
+## Kubernetes & GitOps
 
-to apply
-1.terraform apply -target=module.network \
-                 -target=module.security \
-                 -target=module.eks \
-                 -target=module.ebs_csi
+- Helm chart `k8s/charts/workout-stack` deploys backend, frontend, Mongo dependencies, and configures probes/resources.
+- ArgoCD App-of-Apps (`argocd/*-parent.yaml`) sync infrastructure, applications, and logging stacks with automated prune/self-heal.
 
-2. terraform apply -target=module.argocd
+## Infrastructure as Code
 
+- `infra/` Terraform provisions VPC, subnets, security, EKS, and EBS CSI driver.
+- Requires Terraform 1.5+, AWS CLI, configured credentials. Standard flow:
 
-Grafana pass 123456
-
-## Sealed Secrets Management
-
-### Passwords
-- ArgoCD admin: 123456yair
-- MongoDB password: workoutpass123
-
-### How Sealed Secrets Work
-
-The cluster uses **Sealed Secrets** to store encrypted credentials in Git safely. The master key is automatically restored from AWS Secrets Manager when the cluster is created.
-
-**Master Key Location:** `arn:aws:secretsmanager:ap-south-1:273809175099:secret:sealed-secrets/master-key-EZiG8B`
-
-### Workflow:
-1. Terraform restores the sealing key from AWS Secrets Manager
-2. ArgoCD deploys Sealed Secrets controller (uses the restored key)
-3. ArgoCD syncs sealed secrets from GitLab
-4. Sealed Secrets controller decrypts them automatically
-5. Applications use the unsealed secrets
-
-### Benefits:
-- ✅ **No re-sealing needed** when recreating clusters
-- ✅ **Secrets stay in Git** and work across cluster recreations
-- ✅ **Fully automated** during terraform apply
-
-### If Master Key is Lost:
-If you need to re-seal secrets with a new key:
-```bash
-cd infra/main
-kubeseal --fetch-cert > sealing-cert.pem
-
-# Re-seal MongoDB secrets
-kubectl create secret generic mongodb-user-credentials \
-  --from-literal=password="workoutpass123" \
-  --namespace=workout --dry-run=client -o yaml | \
-kubeseal --cert sealing-cert.pem --format yaml \
-  > ../../argocd/manifests/mongodb/mongodb-user-credentials-sealed.yaml
-
-kubectl create secret generic mongodb-uri \
-  --from-literal=MONGO_URI="mongodb://workout:workoutpass123@mongodb-replica-set-svc.workout.svc.cluster.local:27017/workout?authSource=admin&replicaSet=mongodb-replica-set" \
-  --namespace=workout --dry-run=client -o yaml | \
-kubeseal --cert sealing-cert.pem --format yaml \
-  > ../../argocd/manifests/mongodb/mongodb-uri-sealed-secret.yaml
-
-# Push to GitLab
-cd ../../argocd
-git add manifests/mongodb/
-git commit -m "Re-seal secrets"
-git push
-```
+  ```bash
+  cd infra/main
+  terraform init
+  terraform apply
+  aws eks update-kubeconfig --name workout-eks-cluster --region ap-south-1
