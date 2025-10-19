@@ -17,11 +17,25 @@ The system generates personalized workout plans, tracks training history, and su
 
 ## Architecture
 
-- ![Complete portfolio architecture](images/Complete Architercture.png) — End-to-end view of app tiers, CI/CD, GitOps, and cloud resources.
-- ![Jenkins pipeline](images/Pipeline.png) — Build/test/publish/deploy stages run by Jenkins.
-- ![Cluster architecture](images/Cluster.png) — AWS EKS cluster layout, node groups, and supporting services.
-- ![Monitoring stack](images/monitoring.png) — Prometheus, Grafana, ELK, and alerting flows.
-- ![Docker Compose microservices](images/Microservices.png) — Local development topology for backend, frontend, and MongoDB.
+ ![Complete portfolio architecture](images/Complete_Architercture.png) 
+End-to-end view of app tiers, CI/CD, GitOps, and cloud resources.
+
+=========================================================
+
+![Jenkins pipeline](images/Pipeline.png) 
+ Build/
+test/publish/deploy stages run by Jenkins.
+
+   ===========================================================
+![Cluster architecture](images/Cluster.png) 
+
+— AWS EKS cluster layout, node groups, and supporting services.
+
+=============================================================
+![Monitoring stack](images/monitoring.png) — Prometheus, Grafana, ELK, and alerting flows.
+
+=============================================================
+![Docker Compose microservices](images/Microservices.png) — Local development topology for backend, frontend, and MongoDB.
 
 ## Repository Map
 
@@ -75,3 +89,13 @@ The system generates personalized workout plans, tracks training history, and su
   terraform init
   terraform apply
   aws eks update-kubeconfig --name workout-eks-cluster --region ap-south-1
+  ```
+
+## Product Screens
+
+- ![Workout generator view](images/Application_Generator.png) 
+
+====================================================
+
+  — Configuring plan duration, days per week, and difficulty.
+- ![Dashboard overview](images/Application_Dashboard.png) — Tracking active plans, history, and weekly stats.
