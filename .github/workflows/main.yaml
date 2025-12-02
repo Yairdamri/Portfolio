@@ -1,0 +1,42 @@
+name: ci-unit
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    name: Unit Tests (Docker)
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend test image
+        run: docker build -f Dockerfile.test -t backend-test:ci .
+
+      - name: Run unit tests
+        run: |
+          mkdir -p reports
+          docker run --rm -v "$PWD/reports:/app/reports" backend-test:ci
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: reports/
+          if-no-files-found: warn
