@@ -68,3 +68,6 @@ gke_node_min_count                     = 1
 gke_node_max_count                     = 2
 gke_node_labels                        = { env = "test" }
 gke_node_tags                          = []
+
+# Ingress
+ingress_global_ip_name   = "ingress-static-ip"

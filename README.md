@@ -5,7 +5,7 @@ Full-stack fitness platform demonstrating application delivery, GitOps, and infr
 ## Quick Links
 
 - Backend FastAPI app → `app/`
-- Frontend React SPA → `frontend/`
+- Frontend React → `frontend/`
 - Terraform infrastructure → `infra/`
 - Helm charts for Kubernetes → `k8s/`
 - ArgoCD GitOps definitions → `argocd/`

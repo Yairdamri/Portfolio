@@ -1,0 +1,4 @@
+projects/476619907572/locations/global/workloadIdentityPools/githubactions/providers/githubactions
+projects/476619907572/locations/global/workloadIdentityPools/githubactions
+
+principalSet://iam.googleapis.com/projects/123456789012/locations/global/workloadIdentityPools/githubactions/attribute.repository/Yairdamri/Portfolio

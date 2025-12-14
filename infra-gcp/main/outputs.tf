@@ -39,3 +39,11 @@ output "gke" {
     node_service_account_email = module.gke.node_service_account_email
   }
 }
+
+output "ingress_global_ip" {
+  description = "Reserved global static IP for ingress."
+  value = {
+    name = google_compute_global_address.ingress_ip.name
+    ip   = google_compute_global_address.ingress_ip.address
+  }
+}

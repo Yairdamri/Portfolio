@@ -251,3 +251,10 @@ variable "gke_node_tags" {
   type        = list(string)
   default     = []
 }
+
+# Ingress
+variable "ingress_global_ip_name" {
+  description = "Name for the reserved global static IP used by ingress."
+  type        = string
+  default     = "ingress-static-ip"
+}

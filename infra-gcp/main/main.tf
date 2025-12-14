@@ -69,3 +69,7 @@ module "gke" {
   node_labels                    = var.gke_node_labels
   node_tags                      = var.gke_node_tags
 }
+
+resource "google_compute_global_address" "ingress_ip" {
+  name = var.ingress_global_ip_name
+}
