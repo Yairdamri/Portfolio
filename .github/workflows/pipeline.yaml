@@ -1,0 +1,131 @@
+name: pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+  workflow_dispatch:
+
+concurrency:
+  group: pipeline-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GAR_LOCATION: us-central1
+  PROJECT_ID: porfolio-480111
+  BACKEND_IMAGE: workout-backend
+  FRONTEND_IMAGE: workout-frontend
+
+jobs:
+  unit:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build backend test image
+        run: docker build -f Dockerfile.test -t backend-test:ci .
+      - name: Run unit tests
+        run: |
+          set -euxo pipefail
+          mkdir -p reports
+          docker run --rm -v "$PWD/reports:/app/reports" backend-test:ci
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: reports/
+          if-no-files-found: warn
+
+  integration:
+    needs: unit
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/heads/main') || startsWith(github.ref, 'refs/heads/feature/')
+    permissions: { id-token: write, contents: read }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Run integration tests (docker compose)
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+        run: |
+          set -euxo pipefail
+          docker compose -f docker-compose.yaml up -d
+          chmod +x scripts/integration_check.sh || true
+          bash scripts/integration_check.sh
+      - name: Teardown
+        if: always()
+        run: docker compose -f docker-compose.yaml down -v --remove-orphans || true
+
+  e2e:
+    needs: integration
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/heads/main') || startsWith(github.ref, 'refs/heads/feature/')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Run e2e tests
+        run: |
+          set -euxo pipefail
+          chmod +x scripts/e2e_check.sh || true
+          bash scripts/e2e_check.sh
+
+  build_images:
+    needs: e2e
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/heads/main')
+    permissions: { id-token: write, contents: read }
+    env:
+      REGISTRY: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}
+      TAG: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+      - name: Docker auth to GAR
+        run: gcloud auth configure-docker $GAR_LOCATION-docker.pkg.dev
+      - uses: docker/setup-buildx-action@v3
+      - name: Build & push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:${{ env.TAG }}
+            ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build & push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:${{ env.TAG }}
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build_images
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/heads/main')
+    permissions: { id-token: write, contents: read }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+      - name: Deploy placeholder
+        run: |
+          echo "Add deploy steps here (update manifests/values and trigger ArgoCD or kubectl apply)."
