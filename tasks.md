@@ -89,3 +89,11 @@ Use this as a checklist to stand up the new GCP stack and cut over from AWS/Jenk
 - [ ] Monitor after cutover.
 - [ ] Keep roll back plan ready.
 - [ ] Clean up AWS resources and credentials once stable.
+
+## Terragrunt Adoption (Terraform)
+- [ ] Add a root `terragrunt.hcl` with remote_state (GCS) and common provider settings (project/region).
+- [ ] Create per-environment folders (e.g., `envs/dev/terragrunt.hcl`) pointing to `infra-gcp/main` as the source.
+- [ ] Migrate `terraform.tfvars` inputs into Terragrunt `inputs` per environment.
+- [ ] Configure GCS backend (bucket/prefix) via Terragrunt and remove local backend from the module.
+- [ ] Test `terragrunt init/plan/apply` for one environment and migrate state to GCS.
+- [ ] Update CI to use Terragrunt and ignore local Terraform state; add `.terragrunt-cache/` to gitignore if not present.
