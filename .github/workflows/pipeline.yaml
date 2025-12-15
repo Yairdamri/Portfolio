@@ -71,14 +71,46 @@ jobs:
           chmod +x scripts/e2e_check.sh || true
           bash scripts/e2e_check.sh
 
-  build_images:
+  version_bump:
     needs: e2e
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/heads/main')
+    permissions: { contents: write }
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compute next version and tag
+        id: bump
+        shell: bash
+        run: |
+          set -euo pipefail
+          latest=$(git tag --list "v*" --sort=-v:refname | head -n1 || true)
+          if [[ -z "$latest" ]]; then
+            major=1; minor=0; patch=0
+          elif [[ "$latest" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            major=${BASH_REMATCH[1]}; minor=${BASH_REMATCH[2]}; patch=${BASH_REMATCH[3]}
+            patch=$((patch+1))
+          else
+            major=1; minor=0; patch=0
+          fi
+          version="v${major}.${minor}.${patch}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          git config user.email "ci@github"
+          git config user.name "github-actions"
+          git tag -f "$version"
+          git push --force origin "$version"
+
+  build_images:
+    needs: version_bump
     runs-on: ubuntu-22.04
     if: startsWith(github.ref, 'refs/heads/main')
     permissions: { id-token: write, contents: read }
     env:
-      REGISTRY: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}
-      TAG: ${{ github.sha }}
+      REGISTRY: us-central1-docker.pkg.dev/porfolio-480111
+      TAG: ${{ needs.version_bump.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
