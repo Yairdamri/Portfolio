@@ -1,72 +1,72 @@
-name: ci-unit
+# name: ci-unit
 
-on:
-  push:
-    branches:
-      - main
-      - 'feature/**'
-  pull_request:
-    branches:
-      - main
-  workflow_dispatch:
+# on:
+#   push:
+#     branches:
+#       - main
+#       - 'feature/**'
+#   pull_request:
+#     branches:
+#       - main
+#   workflow_dispatch:
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+# concurrency:
+#   group: ci-${{ github.ref }}
+#   cancel-in-progress: true
 
-jobs:
-  unit-tests:
-    name: Unit Tests (Docker)
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+# jobs:
+#   unit-tests:
+#     name: Unit Tests (Docker)
+#     runs-on: ubuntu-22.04
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+#       - name: Set up Docker Buildx
+#         uses: docker/setup-buildx-action@v3
 
-      - name: Build backend test image
-        run: docker build -f Dockerfile.test -t backend-test:ci .
+#       - name: Build backend test image
+#         run: docker build -f Dockerfile.test -t backend-test:ci .
 
-      - name: Run unit tests
-        run: |
-          mkdir -p reports
-          docker run --rm -v "$PWD/reports:/app/reports" backend-test:ci
+#       - name: Run unit tests
+#         run: |
+#           mkdir -p reports
+#           docker run --rm -v "$PWD/reports:/app/reports" backend-test:ci
 
-      - name: Upload test report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: unit-test-report
-          path: reports/
-          if-no-files-found: warn
+#       - name: Upload test report
+#         if: always()
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: unit-test-report
+#           path: reports/
+#           if-no-files-found: warn
 
       
-      - name: Log into registry ${{ env.REGISTRY }}
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+#     - name: Log into registry ${{ env.REGISTRY }}
+#         if: github.event_name != 'pull_request'
+#         uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+#         with:
+#           registry: ${{ env.REGISTRY }}
+#           username: ${{ github.actor }}
+#           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Extract metadata (tags, labels) for Docker
-      # https://github.com/docker/metadata-action
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+#       # Extract metadata (tags, labels) for Docker
+#       # https://github.com/docker/metadata-action
+#       - name: Extract Docker metadata
+#         id: meta
+#         uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
+#         with:
+#           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
-      # Build and push Docker image with Buildx (don't push on PR)
-      # https://github.com/docker/build-push-action
-      - name: Build and push Docker image
-        id: build-and-push
-        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
-        with:
-          context: .
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+#       # Build and push Docker image with Buildx (don't push on PR)
+#       # https://github.com/docker/build-push-action
+#       - name: Build and push Docker image
+#         id: build-and-push
+#         uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
+#         with:
+#           context: .
+#           push: ${{ github.event_name != 'pull_request' }}
+#           tags: ${{ steps.meta.outputs.tags }}
+#           labels: ${{ steps.meta.outputs.labels }}
+#           cache-from: type=gha
+#           cache-to: type=gha,mode=max

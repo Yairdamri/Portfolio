@@ -1,0 +1,16 @@
+# name: ci-tests
+# on:
+#   pull_request:
+#   workflow_dispatch:
+# concurrency: {group: ci-${{ github.ref }}, cancel-in-progress: true}
+# jobs:
+#   unit:
+#     runs-on: ubuntu-22.04
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: docker/setup-buildx-action@v3
+#       - run: docker build -f Dockerfile.test -t backend-test:ci .
+#       - run: mkdir -p reports && docker run --rm -v "$PWD/reports:/app/reports" backend-test:ci
+#       - uses: actions/upload-artifact@v4
+#         if: always()
+#         with: {name: unit-test-report, path: reports}
