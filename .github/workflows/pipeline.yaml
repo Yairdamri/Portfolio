@@ -68,8 +68,12 @@ jobs:
       - name: Run e2e tests
         run: |
           set -euxo pipefail
+          docker compose -f docker-compose.yaml up -d
           chmod +x scripts/e2e_check.sh || true
           bash scripts/e2e_check.sh
+      - name: Teardown
+        if: always()
+        run: docker compose -f docker-compose.yaml down -v --remove-orphans || true
 
   version_bump:
     needs: e2e
