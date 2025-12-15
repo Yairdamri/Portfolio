@@ -64,8 +64,8 @@ jobs:
           fi
           clean="${VERSION#v}"
           sed -i "s/^appVersion:.*/appVersion: ${clean}/" "${chart_dir}/Chart.yaml"
-          sed -i "s#/backend:[^[:space:]]*#/backend:${VERSION}#g" "${chart_dir}/values.yaml"
-          sed -i "s#/frontend:[^[:space:]]*#/frontend:${VERSION}#g" "${chart_dir}/values.yaml"
+          # update image tags in values.yaml
+          sed -i "s/^[[:space:]]*tag:.*/    tag: ${VERSION}/" "${chart_dir}/values.yaml"
           git config user.email "ci@github"
           git config user.name "github-actions"
           git commit -am "chore: bump helm chart to ${VERSION}" || exit 0
