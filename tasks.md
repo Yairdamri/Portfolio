@@ -96,4 +96,4 @@ Use this as a checklist to stand up the new GCP stack and cut over from AWS/Jenk
 - [ ] Migrate `terraform.tfvars` inputs into Terragrunt `inputs` per environment.
 - [ ] Configure GCS backend (bucket/prefix) via Terragrunt and remove local backend from the module.
 - [ ] Test `terragrunt init/plan/apply` for one environment and migrate state to GCS.
-- [ ] Update CI to use Terragrunt and ignore local Terraform state; add `.terragrunt-cache/` to gitignore if not present.
+- [ ] Update CI to use Terragrunt and ignore local Terraform state; add `.terragrunt-cache/` to gitignore if not present..
