@@ -16,12 +16,43 @@ env:
   FRONTEND_IMAGE_NAME: frontend
 
 jobs:
+  version_bump:
+    runs-on: ubuntu-22.04
+    permissions: { contents: write }
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compute next version and tag
+        id: bump
+        shell: bash
+        run: |
+          set -euo pipefail
+          latest=$(git tag --list "v*" --sort=-v:refname | head -n1 || true)
+          if [[ -z "$latest" ]]; then
+            major=1; minor=0; patch=0
+          elif [[ "$latest" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            major=${BASH_REMATCH[1]}; minor=${BASH_REMATCH[2]}; patch=${BASH_REMATCH[3]}
+            patch=$((patch+1))
+          else
+            major=1; minor=0; patch=0
+          fi
+          version="v${major}.${minor}.${patch}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          git config user.email "ci@github"
+          git config user.name "github-actions"
+          git tag -f "$version"
+          git push --force origin "$version"
+
   build-and-push:
+    needs: version_bump
     runs-on: ubuntu-22.04
     permissions: { id-token: write, contents: read }
     env:
       REGISTRY: us-central1-docker.pkg.dev/porfolio-480111
-      TAG: ${{ github.sha }}
+      TAG: ${{ needs.version_bump.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
