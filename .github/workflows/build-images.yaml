@@ -106,3 +106,16 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.FRONTEND_REPO }}/${{ env.FRONTEND_IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Slack notify
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          STATUS: ${{ job.status }}
+        run: |
+          msg="Build-images job *${STATUS}* on ${GITHUB_REF} (run ${GITHUB_RUN_NUMBER})."
+          payload=$(cat <<EOF
+          { "text": "${msg}" }
+          EOF
+          )
+          curl -X POST -H 'Content-type: application/json' --data "${payload}" "$SLACK_WEBHOOK_URL"
