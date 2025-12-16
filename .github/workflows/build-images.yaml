@@ -113,9 +113,7 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           STATUS: ${{ job.status }}
         run: |
-          msg="Build-images job *${STATUS}* on ${GITHUB_REF} (run ${GITHUB_RUN_NUMBER})."
-          payload=$(cat <<EOF
-          { "text": "${msg}" }
-          EOF
-          )
-          curl -X POST -H 'Content-type: application/json' --data "${payload}" "$SLACK_WEBHOOK_URL"
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "No SLACK_WEBHOOK_URL set, skipping"; exit 0; fi
+          msg="build-images job *${STATUS}* on ${GITHUB_REF} (run ${GITHUB_RUN_NUMBER})."
+          curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"$msg\"}" "$SLACK_WEBHOOK_URL"
