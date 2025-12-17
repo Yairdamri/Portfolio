@@ -10,9 +10,9 @@ concurrency:
 env:
   GAR_LOCATION: us-central1
   PROJECT_ID: porfolio-480111
-  BACKEND_REPO: workout-backend
+  BACKEND_REPO: workout-backend-prod
   BACKEND_IMAGE_NAME: backend
-  FRONTEND_REPO: workout-frontend
+  FRONTEND_REPO: workout-frontend-prod
   FRONTEND_IMAGE_NAME: frontend
 
 jobs:
