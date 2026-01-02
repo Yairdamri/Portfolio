@@ -1,0 +1,68 @@
+name: ci-cd
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GAR_LOCATION: ${{ vars.GAR_LOCATION }}
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  REGISTRY: ${{ vars.GAR_LOCATION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}
+  BACKEND_REPO: ${{ vars.BACKEND_REPO }}
+  BACKEND_IMAGE_NAME: backend
+  FRONTEND_REPO: ${{ vars.FRONTEND_REPO }}
+  FRONTEND_IMAGE_NAME: frontend
+
+jobs:
+  unit_backend:
+    name: Backend unit tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend test image
+        run: docker build -f Dockerfile.test -t backend-test:ci .
+      - name: Run unit tests
+        run: docker run --rm backend-test:ci
+        
+  unit_frontend:
+    name: Frontend unit tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Run unit tests
+        working-directory: frontend
+        run: npm run test:run
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-22.04
+    needs: [unit_backend, unit_frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start compose stack
+        run: docker compose -f docker-compose.yaml up -d
+      - name: Run integration tests
+        run: bash scripts/integration_check.sh
+      - name: Dump logs
+        if: failure()
+        run: docker compose -f docker-compose.yaml logs --no-color --tail=200
+      - name: Teardown
+        if: always()
+        run: docker compose -f docker-compose.yaml down -v --remove-orphans
