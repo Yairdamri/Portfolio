@@ -105,7 +105,7 @@ jobs:
   version_tag:
     name: Release tag
     runs-on: ubuntu-22.04
-    # needs: [e2e]
+    needs: [e2e]
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
