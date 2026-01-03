@@ -1,0 +1,35 @@
+{
+  "text": "ci-cd results: unit_backend={{ env.UNIT_BACKEND }}, unit_frontend={{ env.UNIT_FRONTEND }}, integration={{ env.INTEGRATION }}, e2e={{ env.E2E }}, version_tag={{ env.VERSION_TAG }}, build_images={{ env.BUILD_IMAGES }}, deploy={{ env.DEPLOY }}. {{ env.RUN_URL }}",
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "CI/CD Run Summary"
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        { "type": "mrkdwn", "text": "*Repository:*\n{{ env.REPO }}" },
+        { "type": "mrkdwn", "text": "*Workflow:*\n{{ env.WORKFLOW }}" },
+        { "type": "mrkdwn", "text": "*Branch:*\n{{ env.BRANCH }}" },
+        { "type": "mrkdwn", "text": "*Event:*\n{{ env.EVENT }}" },
+        { "type": "mrkdwn", "text": "*Actor:*\n{{ env.ACTOR }}" },
+        { "type": "mrkdwn", "text": "*Run:*\n{{ env.RUN_URL }}" }
+      ]
+    },
+    {
+      "type": "section",
+      "fields": [
+        { "type": "mrkdwn", "text": "*unit_backend:*\n{{ env.UNIT_BACKEND }}" },
+        { "type": "mrkdwn", "text": "*unit_frontend:*\n{{ env.UNIT_FRONTEND }}" },
+        { "type": "mrkdwn", "text": "*integration:*\n{{ env.INTEGRATION }}" },
+        { "type": "mrkdwn", "text": "*e2e:*\n{{ env.E2E }}" },
+        { "type": "mrkdwn", "text": "*version_tag:*\n{{ env.VERSION_TAG }}" },
+        { "type": "mrkdwn", "text": "*build_images:*\n{{ env.BUILD_IMAGES }}" },
+        { "type": "mrkdwn", "text": "*deploy:*\n{{ env.DEPLOY }}" }
+      ]
+    }
+  ]
+}
