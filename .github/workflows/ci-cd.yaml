@@ -66,3 +66,20 @@ jobs:
       - name: Teardown
         if: always()
         run: docker compose -f docker-compose.yaml down -v --remove-orphans
+
+  e2e:
+    name: End-to-end tests
+    runs-on: ubuntu-22.04
+    needs: [integration]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start compose stack
+        run: docker compose -f docker-compose.yaml up -d
+      - name: Run e2e tests
+        run: bash scripts/e2e_check.sh
+      - name: Dump logs
+        if: failure()
+        run: docker compose -f docker-compose.yaml logs --no-color --tail=200
+      - name: Teardown
+        if: always()
+        run: docker compose -f docker-compose.yaml down -v --remove-orphans
