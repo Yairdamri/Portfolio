@@ -1,5 +1,6 @@
 name: ci-cd
 
+# Triggers: all branches + PRs to main + manual release runs.
 on:
   push:
     branches:
@@ -13,13 +14,16 @@ on:
         required: true
         type: string
 
+# Cancel older runs on the same ref.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Default permissions (elevate per job when needed).
 permissions:
   contents: read
 
+# Shared build metadata (non-secrets).
 env:
   GAR_LOCATION: ${{ vars.GAR_LOCATION }}
   GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
@@ -30,6 +34,7 @@ env:
   FRONTEND_IMAGE_NAME: frontend
 
 jobs:
+  # Backend unit tests via Dockerfile.test.
   unit_backend:
     name: Backend unit tests
     runs-on: ubuntu-22.04
@@ -39,7 +44,8 @@ jobs:
         run: docker build -f Dockerfile.test -t backend-test:ci .
       - name: Run unit tests
         run: docker run --rm backend-test:ci
-        
+
+  # Frontend unit tests with Vitest.
   unit_frontend:
     name: Frontend unit tests
     runs-on: ubuntu-22.04
@@ -55,6 +61,7 @@ jobs:
         working-directory: frontend
         run: npm run test:run
 
+  # Integration checks against the compose stack.
   integration:
     name: Integration tests
     runs-on: ubuntu-22.04
@@ -72,6 +79,7 @@ jobs:
         if: always()
         run: docker compose -f docker-compose.yaml down -v --remove-orphans
 
+  # End-to-end API flow checks.
   e2e:
     name: End-to-end tests
     runs-on: ubuntu-22.04
@@ -89,6 +97,7 @@ jobs:
         if: always()
         run: docker compose -f docker-compose.yaml down -v --remove-orphans
 
+  # Manual release tagging on main.
   version_tag:
     name: Release tag
     runs-on: ubuntu-22.04
@@ -121,6 +130,7 @@ jobs:
           name: ${{ steps.validate.outputs.version }}
           generate_release_notes: true
 
+  # Build and publish images to GAR.
   build_images:
     name: Build & push images
     runs-on: ubuntu-22.04
@@ -141,7 +151,7 @@ jobs:
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
       - name: Docker auth to GAR
-        run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev
+        run: gcloud auth configure-docker $GAR_LOCATION-docker.pkg.dev
       - uses: docker/setup-buildx-action@v3
       - name: Build & push backend
         uses: docker/build-push-action@v5
@@ -164,6 +174,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # GitOps: update external Helm repo to trigger ArgoCD.
   deploy:
     name: Update Helm repo
     runs-on: ubuntu-22.04
@@ -199,6 +210,7 @@ jobs:
           git commit -am "chore: bump helm chart to ${VERSION}" || exit 0
           git push
 
+  # Always notify Slack with job results.
   notify:
     name: Notify Slack
     runs-on: ubuntu-22.04
