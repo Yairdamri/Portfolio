@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      version:
+        description: Release tag (e.g. v1.2.3)
+        required: true
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -83,3 +88,142 @@ jobs:
       - name: Teardown
         if: always()
         run: docker compose -f docker-compose.yaml down -v --remove-orphans
+
+  version_tag:
+    name: Release tag
+    runs-on: ubuntu-22.04
+    needs: [e2e]
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.validate.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate version input
+        id: validate
+        run: bash scripts/validate_version.sh "${{ inputs.version }}"
+      - name: Create and push tag
+        env:
+          VERSION: ${{ steps.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.email "ci@github"
+          git config user.name "github-actions"
+          git tag "$VERSION"
+          git push origin "$VERSION"
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.validate.outputs.version }}
+          name: ${{ steps.validate.outputs.version }}
+          generate_release_notes: true
+
+  build_images:
+    name: Build & push images
+    runs-on: ubuntu-22.04
+    needs: [version_tag]
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TAG: ${{ needs.version_tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+      - name: Docker auth to GAR
+        run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev
+      - uses: docker/setup-buildx-action@v3
+      - name: Build & push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.BACKEND_REPO }}/${{ env.BACKEND_IMAGE_NAME }}:${{ env.TAG }}
+            ${{ env.REGISTRY }}/${{ env.BACKEND_REPO }}/${{ env.BACKEND_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build & push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_REPO }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ env.TAG }}
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_REPO }}/${{ env.FRONTEND_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Update Helm repo
+    runs-on: ubuntu-22.04
+    needs: [build_images, version_tag]
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.version_tag.outputs.version }}
+    steps:
+      - name: Update Helm chart in external repo
+        env:
+          K8S_REPO_URL: ${{ secrets.K8S_REPO_URL }}
+          K8S_REPO_TOKEN: ${{ secrets.K8S_REPO_TOKEN }}
+          K8S_CHART_DIR: ${{ secrets.K8S_CHART_DIR }}
+        run: |
+          set -euo pipefail
+          tmpdir=$(mktemp -d)
+          url_no_proto=${K8S_REPO_URL#https://}
+          git clone "https://x-access-token:${K8S_REPO_TOKEN}@${url_no_proto}" "$tmpdir"
+          cd "$tmpdir"
+          chart_dir="${K8S_CHART_DIR:-k8s/charts/workout-stack}"
+          if [ ! -f "${chart_dir}/Chart.yaml" ] || [ ! -f "${chart_dir}/values.yaml" ]; then
+            echo "Expected Chart.yaml/values.yaml under ${chart_dir}" >&2
+            exit 1
+          fi
+          clean="${VERSION#v}"
+          sed -i "s/^appVersion:.*/appVersion: ${clean}/" "${chart_dir}/Chart.yaml"
+          sed -i "s#/backend:[^[:space:]]*#/backend:${VERSION}#g" "${chart_dir}/values.yaml"
+          sed -i "s#/frontend:[^[:space:]]*#/frontend:${VERSION}#g" "${chart_dir}/values.yaml"
+          git config user.email "ci@github"
+          git config user.name "github-actions"
+          git commit -am "chore: bump helm chart to ${VERSION}" || exit 0
+          git push
+
+  notify:
+    name: Notify Slack
+    runs-on: ubuntu-22.04
+    if: always()
+    needs: [unit_backend, unit_frontend, integration, e2e, version_tag, build_images, deploy]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Post Slack message
+        continue-on-error: true
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload-file-path: scripts/slack_payload.json
+          payload-templated: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+          UNIT_BACKEND: ${{ needs.unit_backend.result }}
+          UNIT_FRONTEND: ${{ needs.unit_frontend.result }}
+          INTEGRATION: ${{ needs.integration.result }}
+          E2E: ${{ needs.e2e.result }}
+          VERSION_TAG: ${{ needs.version_tag.result }}
+          BUILD_IMAGES: ${{ needs.build_images.result }}
+          DEPLOY: ${{ needs.deploy.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPO: ${{ github.repository }}
+          WORKFLOW: ${{ github.workflow }}
+          BRANCH: ${{ github.ref_name }}
+          EVENT: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
