@@ -28,5 +28,4 @@ tmp/
 infra/
 infra-gcp/
 k8s/
-tests/
 images/
