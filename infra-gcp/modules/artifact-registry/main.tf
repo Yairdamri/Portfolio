@@ -7,6 +7,7 @@ resource "google_artifact_registry_repository" "this" {
   format        = each.value.format
   description   = lookup(each.value, "description", null)
   labels        = lookup(each.value, "labels", null)
+  kms_key_name  = lookup(each.value, "kms_key_name", null)
 
   dynamic "docker_config" {
     for_each = each.value.format == "DOCKER" ? [1] : []
@@ -15,14 +16,4 @@ resource "google_artifact_registry_repository" "this" {
     }
   }
 
-  dynamic "kms_config" {
-    for_each = lookup(each.value, "kms_key_name", null) != null ? [each.value.kms_key_name] : []
-    content {
-      kms_key_name = kms_config.value
-    }
-  }
-
-  lifecycle {
-    prevent_destroy = true
-  }
 }

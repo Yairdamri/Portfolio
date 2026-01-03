@@ -35,67 +35,71 @@ env:
 
 jobs:
   # Backend unit tests via Dockerfile.test.
-  # unit_backend:
-  #   name: Backend unit tests
-  #   runs-on: ubuntu-22.04
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Build backend test image
-  #       run: docker build -f Dockerfile.test -t backend-test:ci .
-  #     - name: Run unit tests
-  #       run: docker run --rm backend-test:ci
+  unit_backend:
+    name: Backend unit tests
+    runs-on: ubuntu-22.04
+    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend test image
+        run: docker build -f Dockerfile.test -t backend-test:ci .
+      - name: Run unit tests
+        run: docker run --rm backend-test:ci
 
   # # Frontend unit tests with Vitest.
-  # unit_frontend:
-  #   name: Frontend unit tests
-  #   runs-on: ubuntu-22.04
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 20
-  #     - name: Install dependencies
-  #       working-directory: frontend
-  #       run: npm ci
-  #     - name: Run unit tests
-  #       working-directory: frontend
-  #       run: npm run test:run
+  unit_frontend:
+    name: Frontend unit tests
+    runs-on: ubuntu-22.04
+    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Run unit tests
+        working-directory: frontend
+        run: npm run test:run
 
   # # Integration checks against the compose stack.
-  # integration:
-  #   name: Integration tests
-  #   runs-on: ubuntu-22.04
-  #   needs: [unit_backend, unit_frontend]
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Start compose stack
-  #       run: docker compose -f docker-compose.yaml up -d
-  #     - name: Run integration tests
-  #       run: bash scripts/integration_check.sh
-  #     - name: Dump logs
-  #       if: failure()
-  #       run: docker compose -f docker-compose.yaml logs --no-color --tail=200
-  #     - name: Teardown
-  #       if: always()
-  #       run: docker compose -f docker-compose.yaml down -v --remove-orphans
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-22.04
+    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
+    needs: [unit_backend, unit_frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start compose stack
+        run: docker compose -f docker-compose.yaml up -d
+      - name: Run integration tests
+        run: bash scripts/integration_check.sh
+      - name: Dump logs
+        if: failure()
+        run: docker compose -f docker-compose.yaml logs --no-color --tail=200
+      - name: Teardown
+        if: always()
+        run: docker compose -f docker-compose.yaml down -v --remove-orphans
 
-  # # End-to-end API flow checks.
-  # e2e:
-  #   name: End-to-end tests
-  #   runs-on: ubuntu-22.04
-  #   needs: [integration]
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Start compose stack
-  #       run: docker compose -f docker-compose.yaml up -d
-  #     - name: Run e2e tests
-  #       run: bash scripts/e2e_check.sh
-  #     - name: Dump logs
-  #       if: failure()
-  #       run: docker compose -f docker-compose.yaml logs --no-color --tail=200
-  #     - name: Teardown
-  #       if: always()
-  #       run: docker compose -f docker-compose.yaml down -v --remove-orphans
+  # End-to-end API flow checks.
+  e2e:
+    name: End-to-end tests
+    runs-on: ubuntu-22.04
+    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
+    needs: [integration]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start compose stack
+        run: docker compose -f docker-compose.yaml up -d
+      - name: Run e2e tests
+        run: bash scripts/e2e_check.sh
+      - name: Dump logs
+        if: failure()
+        run: docker compose -f docker-compose.yaml logs --no-color --tail=200
+      - name: Teardown
+        if: always()
+        run: docker compose -f docker-compose.yaml down -v --remove-orphans
 
   # Manual release tagging on main.
   version_tag:
@@ -212,31 +216,39 @@ jobs:
           git push
 
   # Always notify Slack with job results.
-  # notify:
-  #   name: Notify Slack
-  #   runs-on: ubuntu-22.04
-  #   if: always()
-  #   needs: [unit_backend, unit_frontend, integration, e2e, version_tag, build_images, deploy]
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Post Slack message
-  #       continue-on-error: true
-  #       uses: slackapi/slack-github-action@v1.26.0
-  #       with:
-  #         payload-file-path: scripts/slack_payload.json
-  #         payload-templated: true
-  #       env:
-  #         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
-  #         UNIT_BACKEND: ${{ needs.unit_backend.result }}
-  #         UNIT_FRONTEND: ${{ needs.unit_frontend.result }}
-  #         INTEGRATION: ${{ needs.integration.result }}
-  #         E2E: ${{ needs.e2e.result }}
-  #         VERSION_TAG: ${{ needs.version_tag.result }}
-  #         BUILD_IMAGES: ${{ needs.build_images.result }}
-  #         DEPLOY: ${{ needs.deploy.result }}
-  #         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-  #         REPO: ${{ github.repository }}
-  #         WORKFLOW: ${{ github.workflow }}
-  #         BRANCH: ${{ github.ref_name }}
-  #         EVENT: ${{ github.event_name }}
-  #         ACTOR: ${{ github.actor }}
+  notify:
+    name: Notify Slack
+    runs-on: ubuntu-22.04
+    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
+    if: always()
+    needs: [unit_backend, unit_frontend, integration, e2e, version_tag, build_images, deploy]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Post Slack message
+        continue-on-error: true
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload-file-path: scripts/slack_payload.json
+          payload-templated: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+          UNIT_BACKEND: ${{ needs.unit_backend.result }}
+          UNIT_BACKEND_ICON: ${{ needs.unit_backend.result == 'success' && 'V' || 'X' }}
+          UNIT_FRONTEND: ${{ needs.unit_frontend.result }}
+          UNIT_FRONTEND_ICON: ${{ needs.unit_frontend.result == 'success' && 'V' || 'X' }}
+          INTEGRATION: ${{ needs.integration.result }}
+          INTEGRATION_ICON: ${{ needs.integration.result == 'success' && 'V' || 'X' }}
+          E2E: ${{ needs.e2e.result }}
+          E2E_ICON: ${{ needs.e2e.result == 'success' && 'V' || 'X' }}
+          VERSION_TAG: ${{ needs.version_tag.result }}
+          VERSION_TAG_ICON: ${{ needs.version_tag.result == 'success' && 'V' || 'X' }}
+          BUILD_IMAGES: ${{ needs.build_images.result }}
+          BUILD_IMAGES_ICON: ${{ needs.build_images.result == 'success' && 'V' || 'X' }}
+          DEPLOY: ${{ needs.deploy.result }}
+          DEPLOY_ICON: ${{ needs.deploy.result == 'success' && 'V' || 'X' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPO: ${{ github.repository }}
+          WORKFLOW: ${{ github.workflow }}
+          BRANCH: ${{ github.ref_name }}
+          EVENT: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}

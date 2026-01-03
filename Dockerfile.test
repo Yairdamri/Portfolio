@@ -12,6 +12,6 @@ RUN pip install --no-cache-dir -r requirements.txt && pip install --no-cache-dir
 
 COPY app /app/app
 COPY tests /app/tests
-COPY pytest.ini /app/pytest.ini
+# COPY pytest.ini /app/pytest.ini
 
 CMD ["bash", "-lc", "mkdir -p /app/reports && pytest -q --maxfail=1 --disable-warnings --junitxml=/app/reports/unit-tests.xml"]

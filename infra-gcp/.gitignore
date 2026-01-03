@@ -1,0 +1,35 @@
+/main/terraform.tfstate
+/main/terraform.tfstate.*
+/main/.terraform/
+/main/.terraform.lock.hcl
+/main/terraform.tfstate
+/main/terraform.tfstate.*
+/main/terraform.tfvars
+
+# Terragrunt/Terraform local artifacts
+.terragrunt-cache/
+.terraform/
+**/.terraform/
+
+# State and crash files
+*.tfstate
+*.tfstate.*
+crash.log
+
+# Generated provider/backend files
+backend.auto.tf
+provider.auto.tf
+
+# Local overrides/vars (not meant for VCS)
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*.tfvars
+*.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+
+# Provider locks for local runs (keep locks in root if you want to pin)
+.terraform.lock.hcl
+**/.terraform.lock.hcl

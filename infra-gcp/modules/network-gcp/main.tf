@@ -97,3 +97,10 @@ resource "google_compute_router_nat" "this" {
 
   depends_on = [google_compute_router.this]
 }
+
+resource "google_compute_address" "ingress_ip" {
+  count  = var.create_ingress_ip ? 1 : 0
+  name   = coalesce(var.ingress_ip_name, "${var.network_name}-ingress-ip")
+  region = var.subnet_region
+  labels = var.labels
+}

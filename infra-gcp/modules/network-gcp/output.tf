@@ -53,3 +53,11 @@ output "nat_name" {
   description = "Cloud NAT name."
   value       = google_compute_router_nat.this.name
 }
+
+output "ingress_ip" {
+  description = "Ingress static IP (if created)."
+  value = length(google_compute_address.ingress_ip) > 0 ? {
+    name = google_compute_address.ingress_ip[0].name
+    ip   = google_compute_address.ingress_ip[0].address
+  } : null
+}

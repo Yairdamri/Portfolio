@@ -83,6 +83,18 @@ variable "enable_nat_logging" {
   type        = bool
 }
 
+variable "create_ingress_ip" {
+  description = "Whether to reserve a regional static IP for ingress."
+  type        = bool
+  default     = false
+}
+
+variable "ingress_ip_name" {
+  description = "Name of the reserved ingress IP (required if create_ingress_ip is true)."
+  type        = string
+  default     = null
+}
+
 variable "labels" {
   description = "Labels to apply to network resources."
   type        = map(string)

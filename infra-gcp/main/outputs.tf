@@ -43,7 +43,7 @@ output "gke" {
 output "ingress_global_ip" {
   description = "Reserved global static IP for ingress."
   value = {
-    name = google_compute_global_address.ingress_ip.name
-    ip   = google_compute_global_address.ingress_ip.address
+    name = google_compute_address.ingress_ip.name
+    ip   = google_compute_address.ingress_ip.address
   }
 }

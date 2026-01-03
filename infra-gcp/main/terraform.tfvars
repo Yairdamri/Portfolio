@@ -19,7 +19,7 @@ enable_nat_logging                    = false
 network_labels                        = { env = "test", stack = "gke" }
 
 # IAM
-project_id                          = "your-gcp-project-id"
+project_id                          = "porfolio-480111"
 node_service_account_name           = "gke-node-sa"
 node_service_account_display_name   = "GKE Node Service Account"
 node_service_account_description    = "Node SA for GKE test cluster"
@@ -29,7 +29,6 @@ node_service_account_roles          = [
   "roles/artifactregistry.reader"
 ]
 
-# Artifact Registry
 artifact_repositories = [
   {
     repository_id = "workout-backend"
@@ -57,17 +56,20 @@ gke_enable_private_nodes               = true
 gke_enable_private_endpoint            = false
 gke_enable_master_authorized_networks  = false
 gke_master_authorized_networks_cidrs   = []
-gke_node_pool_name                     = "default-pool"
+gke_node_pool_name                     = "spot-pool"
 gke_node_locations                     = []
-gke_node_machine_type                  = "e2-medium"
-gke_node_disk_size_gb                  = 50
+gke_node_machine_type                  = "e2-standard-4"
+gke_node_disk_size_gb                  = 25
 gke_node_disk_type                     = "pd-balanced"
 gke_node_image_type                    = "COS_CONTAINERD"
-gke_node_preemptible                   = false
+gke_node_preemptible                   = true
 gke_node_min_count                     = 1
-gke_node_max_count                     = 2
+gke_node_max_count                     = 3
 gke_node_labels                        = { env = "test" }
 gke_node_tags                          = []
 
 # Ingress
 ingress_global_ip_name   = "ingress-static-ip"
+
+# External Secrets GSA (for Workload Identity & Secret Manager access)
+external_secrets_gsa_email = "eso-gsm@porfolio-480111.iam.gserviceaccount.com"

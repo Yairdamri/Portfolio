@@ -122,7 +122,7 @@ variable "node_image_type" {
 variable "node_preemptible" {
   description = "Whether nodes are preemptible (cheaper, less reliable)."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "node_min_count" {

@@ -225,7 +225,7 @@ variable "gke_node_image_type" {
 variable "gke_node_preemptible" {
   description = "Whether nodes are preemptible."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "gke_node_min_count" {
@@ -257,4 +257,11 @@ variable "ingress_global_ip_name" {
   description = "Name for the reserved global static IP used by ingress."
   type        = string
   default     = "ingress-static-ip"
+}
+
+# External Secrets Workload Identity / GSA
+variable "external_secrets_gsa_email" {
+  description = "GSA email used by External Secrets to access Secret Manager."
+  type        = string
+  default     = null
 }

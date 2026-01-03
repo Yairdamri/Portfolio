@@ -1,5 +1,5 @@
 {
-  "text": "ci-cd results: unit_backend={{ env.UNIT_BACKEND }}, unit_frontend={{ env.UNIT_FRONTEND }}, integration={{ env.INTEGRATION }}, e2e={{ env.E2E }}, version_tag={{ env.VERSION_TAG }}, build_images={{ env.BUILD_IMAGES }}, deploy={{ env.DEPLOY }}. {{ env.RUN_URL }}",
+  "text": "CI/CD results:\nunit_backend: {{ env.UNIT_BACKEND_ICON }} ({{ env.UNIT_BACKEND }})\nunit_frontend: {{ env.UNIT_FRONTEND_ICON }} ({{ env.UNIT_FRONTEND }})\nintegration: {{ env.INTEGRATION_ICON }} ({{ env.INTEGRATION }})\ne2e: {{ env.E2E_ICON }} ({{ env.E2E }})\nversion_tag: {{ env.VERSION_TAG_ICON }} ({{ env.VERSION_TAG }})\nbuild_images: {{ env.BUILD_IMAGES_ICON }} ({{ env.BUILD_IMAGES }})\ndeploy: {{ env.DEPLOY_ICON }} ({{ env.DEPLOY }})\nrun: {{ env.RUN_URL }}",
   "blocks": [
     {
       "type": "header",
@@ -21,15 +21,10 @@
     },
     {
       "type": "section",
-      "fields": [
-        { "type": "mrkdwn", "text": "*unit_backend:*\n{{ env.UNIT_BACKEND }}" },
-        { "type": "mrkdwn", "text": "*unit_frontend:*\n{{ env.UNIT_FRONTEND }}" },
-        { "type": "mrkdwn", "text": "*integration:*\n{{ env.INTEGRATION }}" },
-        { "type": "mrkdwn", "text": "*e2e:*\n{{ env.E2E }}" },
-        { "type": "mrkdwn", "text": "*version_tag:*\n{{ env.VERSION_TAG }}" },
-        { "type": "mrkdwn", "text": "*build_images:*\n{{ env.BUILD_IMAGES }}" },
-        { "type": "mrkdwn", "text": "*deploy:*\n{{ env.DEPLOY }}" }
-      ]
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Results:*\nunit_backend: {{ env.UNIT_BACKEND_ICON }} ({{ env.UNIT_BACKEND }})\nunit_frontend: {{ env.UNIT_FRONTEND_ICON }} ({{ env.UNIT_FRONTEND }})\nintegration: {{ env.INTEGRATION_ICON }} ({{ env.INTEGRATION }})\ne2e: {{ env.E2E_ICON }} ({{ env.E2E }})\nversion_tag: {{ env.VERSION_TAG_ICON }} ({{ env.VERSION_TAG }})\nbuild_images: {{ env.BUILD_IMAGES_ICON }} ({{ env.BUILD_IMAGES }})\ndeploy: {{ env.DEPLOY_ICON }} ({{ env.DEPLOY }})"
+      }
     }
   ]
 }

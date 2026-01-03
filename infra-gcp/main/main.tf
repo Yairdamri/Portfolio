@@ -41,35 +41,67 @@ module "artifact_registry" {
 module "gke" {
   source = "../modules/gke"
 
-  project_id                     = var.project_id
-  cluster_name                   = var.gke_cluster_name
-  location                       = var.gke_location
-  network                        = module.network.network_self_link
-  subnetwork                     = module.network.subnet_self_link
-  pods_secondary_range_name      = module.network.pods_secondary_range.name
-  services_secondary_range_name  = module.network.services_secondary_range.name
-  master_ipv4_cidr_block         = var.gke_master_ipv4_cidr_block
-  release_channel                = var.gke_release_channel
-  kubernetes_version             = var.gke_kubernetes_version
-  enable_private_nodes           = var.gke_enable_private_nodes
-  enable_private_endpoint        = var.gke_enable_private_endpoint
+  project_id                        = var.project_id
+  cluster_name                      = var.gke_cluster_name
+  location                          = var.gke_location
+  network                           = module.network.network_self_link
+  subnetwork                        = module.network.subnet_self_link
+  pods_secondary_range_name         = module.network.pods_secondary_range.name
+  services_secondary_range_name     = module.network.services_secondary_range.name
+  master_ipv4_cidr_block            = var.gke_master_ipv4_cidr_block
+  release_channel                   = var.gke_release_channel
+  kubernetes_version                = var.gke_kubernetes_version
+  enable_private_nodes              = var.gke_enable_private_nodes
+  enable_private_endpoint           = var.gke_enable_private_endpoint
   enable_master_authorized_networks = var.gke_enable_master_authorized_networks
   master_authorized_networks_cidrs  = var.gke_master_authorized_networks_cidrs
-  workload_pool                  = "${var.project_id}.svc.id.goog"
-  node_pool_name                 = var.gke_node_pool_name
-  node_locations                 = var.gke_node_locations
-  node_machine_type              = var.gke_node_machine_type
-  node_disk_size_gb              = var.gke_node_disk_size_gb
-  node_disk_type                 = var.gke_node_disk_type
-  node_image_type                = var.gke_node_image_type
-  node_preemptible               = var.gke_node_preemptible
-  node_min_count                 = var.gke_node_min_count
-  node_max_count                 = var.gke_node_max_count
-  node_service_account_email     = module.iam.node_service_account_email
-  node_labels                    = var.gke_node_labels
-  node_tags                      = var.gke_node_tags
+  workload_pool                     = "${var.project_id}.svc.id.goog"
+  node_pool_name                    = var.gke_node_pool_name
+  node_locations                    = var.gke_node_locations
+  node_machine_type                 = var.gke_node_machine_type
+  node_disk_size_gb                 = var.gke_node_disk_size_gb
+  node_disk_type                    = var.gke_node_disk_type
+  node_image_type                   = var.gke_node_image_type
+  node_preemptible                  = var.gke_node_preemptible
+  node_min_count                    = var.gke_node_min_count
+  node_max_count                    = var.gke_node_max_count
+  node_service_account_email        = module.iam.node_service_account_email
+  node_labels                       = var.gke_node_labels
+  node_tags                         = var.gke_node_tags
 }
 
-resource "google_compute_global_address" "ingress_ip" {
-  name = var.ingress_global_ip_name
+resource "google_compute_address" "ingress_ip" {
+  name   = var.ingress_global_ip_name
+  region = var.subnet_region
+}
+
+# External Secrets: allow WI and Secret Manager access for the GSA
+resource "google_service_account_iam_member" "external_secrets_wi" {
+  count              = var.external_secrets_gsa_email == null ? 0 : 1
+  service_account_id = "projects/${var.project_id}/serviceAccounts/${var.external_secrets_gsa_email}"
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[external-secrets/external-secrets]"
+}
+
+resource "google_project_iam_member" "external_secrets_sm" {
+  count   = var.external_secrets_gsa_email == null ? 0 : 1
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${var.external_secrets_gsa_email}"
+}
+
+module "argocd" {
+  source = "../modules/argocd-gcp"
+
+  namespace                = "argocd"
+  repo_url                 = "https://argoproj.github.io/argo-helm"
+  # chart_name               = "argo-cd"
+  # chart_version            = "5.51.6"
+  values                   = ""
+  applications_parent_path = "${path.root}/../../argocd/applications-parent.yaml"
+  infra_parent_path        = "${path.root}/../../argocd/infra-parent.yaml"
+
+  depends_on = [
+    module.gke
+  ]
 }

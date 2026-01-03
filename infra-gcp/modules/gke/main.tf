@@ -52,6 +52,8 @@ resource "google_container_cluster" "this" {
     evaluation_mode = "DISABLED"
   }
 
+  deletion_protection = false
+
   timeouts {
     create = "30m"
     update = "40m"

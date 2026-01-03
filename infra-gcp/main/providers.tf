@@ -11,19 +11,13 @@ provider "google-beta" {
 data "google_client_config" "default" {}
 
 provider "kubernetes" {
-  host  = module.gke.endpoint
-  token = data.google_client_config.default.access_token
-  cluster_ca_certificate = base64decode(
-    module.gke.master_auth.cluster_ca_certificate
-  )
+  config_path    = "~/.kube/config"
+  config_context = "gke_porfolio-480111_us-central1-a_workout-gke" # adjust to your context name
 }
 
 provider "helm" {
   kubernetes {
-    host  = module.gke.endpoint
-    token = data.google_client_config.default.access_token
-    cluster_ca_certificate = base64decode(
-      module.gke.master_auth.cluster_ca_certificate
-    )
+    config_path    = "~/.kube/config"
+    config_context = "gke_porfolio-480111_us-central1-a_workout-gke"
   }
 }
