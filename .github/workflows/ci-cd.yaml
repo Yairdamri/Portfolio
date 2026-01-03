@@ -134,6 +134,7 @@ jobs:
   build_images:
     name: Build & push images
     runs-on: ubuntu-22.04
+    environment: gcp
     needs: [version_tag]
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     permissions:
@@ -178,6 +179,7 @@ jobs:
   deploy:
     name: Update Helm repo
     runs-on: ubuntu-22.04
+    environment: gcp
     needs: [build_images, version_tag]
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     permissions:
