@@ -1,0 +1,57 @@
+Manual troubleshooting notes (GKE + ArgoCD + cert-manager)
+
+1) Cluster access / kubeconfig
+- Refresh creds for the cluster: `gcloud container clusters get-credentials workout-gke --zone us-central1-a --project <project-id>`.
+- If kubectl TLS errors, verify kubeconfig has `certificate-authority-data` and the current context points to the cluster.
+
+2) ArgoCD sync issues
+- Hard refresh an app: `kubectl -n argocd annotate application <app> argocd.argoproj.io/refresh=hard --overwrite`.
+- Check app errors: `kubectl -n argocd describe application <app>`.
+- Manual sync if auto-sync is off: `argocd app sync <app>` (or use UI).
+
+3) External Secrets (GSM)
+- Install operator via ArgoCD app (chart external-secrets) with `installCRDs: true`.
+- Use apiVersion `external-secrets.io/v1` for ClusterSecretStore/ExternalSecret.
+- ClusterSecretStore `gsm-store` points to project `porfolio-480111`, WI auth (KSA external-secrets / namespace external-secrets).
+- ExternalSecret `mongodb-uri` in namespace workout uses ClusterSecretStore gsm-store; target secret name `mongodb-uri` with keys MONGO_URI/username/password.
+- Verify CRDs: `kubectl get crd | grep externalsecrets`.
+- Verify objects: `kubectl get clustersecretstore gsm-store` and `kubectl -n workout get externalsecret mongodb-uri`.
+- If “permission denied secretmanager.versions.access”, ensure the GSA bound to the KSA has `roles/secretmanager.secretAccessor` and the GSM secrets exist.
+
+4) Cert-manager / TLS
+- Apply ClusterIssuer manually if needed: `kubectl apply -f argocd/infra/ClussterIssuer.yaml`.
+- Check issuer: `kubectl describe clusterissuer letsencrypt-prod`.
+- Check certificate: `kubectl -n workout describe certificate workout-tls`.
+- Check challenges: `kubectl get challenges -A` then `kubectl describe challenge <name>`.
+- Ensure DNS A record for the host (e.g., workoutgen.myddns.me) points to the ingress LB IP (static IP from terraform output `ingress_global_ip` or `gcloud compute addresses describe ingress-static-ip --region us-central1 --project <project>`).
+- HTTP-01 must reach ingress: `curl -I http://<host>/.well-known/acme-challenge/test`.
+
+5) Ingress / static IP
+- Static IP currently used: 35.202.157.136 (ingress-nginx values). Update DNS to that IP.
+- ArgoCD ingress-nginx app sets `controller.service.loadBalancerIP: 35.202.157.136`.
+
+6) MongoDB operator and replica set resources
+- Chart expects resources under `operator.resources` (not manager). Example:
+  requests: cpu 50m, memory 128Mi; limits: cpu 150m, memory 256Mi.
+- Replica set (workout namespace) currently 1 member; resources lowered for mongod and mongodb-agent in `argocd/manifests/mongodb/mongodb-replica-set-app.yaml`.
+
+7) CPU scheduling / autoscaler
+- e2-medium gives ~0.94 vCPU allocatable. Five nodes ≈4.7 vCPU total; system + monitoring + apps can exceed this even when usage is low.
+- If “Insufficient cpu” persists, either:
+  a) Add capacity: use larger machine type (e.g., e2-standard-4 Spot) and/or increase max node count. Preemptible/Spot is immutable—create a new pool with a new name (e.g., spot-pool) and `preemptible=true`.
+  b) Reduce load: disable Prometheus/EFK temporarily; keep MongoDB at 1 member with small requests.
+- To recreate/replace the pool safely: add a new Spot pool via Terraform (new `gke_node_pool_name`), apply, drain old nodes, then remove the old pool from TF.
+
+8) Useful kubectl queries
+- Pod requests: `kubectl get pods -A -o custom-columns=NS:.metadata.namespace,NAME:.metadata.name,CPU_REQ:'{.spec.containers[*].resources.requests.cpu}',MEM_REQ:'{.spec.containers[*].resources.requests.memory}'`.
+- Node allocation: `kubectl describe node <node> | sed -n '/Allocated resources/,/Events/p'`.
+- Pending pod requests: `kubectl describe pod <pod> -n <ns> | sed -n '/Requests:/,+5p'`.
+
+9) Artifact Registry / state
+- ArgoCD is stateless; no change needed.
+- Terraform state should be in GCS backend (or ensure local state is not committed). .gitignore includes terraform.tfstate*.
+
+10) Cost rough order (Spot nodes)
+- Control plane ~ $0.10/hr.
+- e2-standard-4 Spot ~ $0.04/hr per node; 3 nodes ≈ $0.12/hr.
+- LB/static IP a few cents/hr; Artifact Registry/GCS minimal if empty; egress extra.
