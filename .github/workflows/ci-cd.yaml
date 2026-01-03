@@ -219,7 +219,6 @@ jobs:
   notify:
     name: Notify Slack
     runs-on: ubuntu-22.04
-    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
     if: always()
     needs: [unit_backend, unit_frontend, integration, e2e, version_tag, build_images, deploy]
     steps:
