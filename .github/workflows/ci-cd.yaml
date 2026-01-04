@@ -209,29 +209,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Post Slack message
         continue-on-error: true
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          payload-file-path: scripts/slack_payload.json
-          payload-templated: true
+        run: bash scripts/notify_slack.sh
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
           UNIT_BACKEND: ${{ needs.unit_backend.result }}
-          UNIT_BACKEND_ICON: ${{ needs.unit_backend.result == 'success' && 'V' || 'X' }}
           UNIT_FRONTEND: ${{ needs.unit_frontend.result }}
-          UNIT_FRONTEND_ICON: ${{ needs.unit_frontend.result == 'success' && 'V' || 'X' }}
           INTEGRATION: ${{ needs.integration.result }}
-          INTEGRATION_ICON: ${{ needs.integration.result == 'success' && 'V' || 'X' }}
           E2E: ${{ needs.e2e.result }}
-          E2E_ICON: ${{ needs.e2e.result == 'success' && 'V' || 'X' }}
           VERSION_TAG: ${{ needs.version_tag.result }}
-          VERSION_TAG_ICON: ${{ needs.version_tag.result == 'success' && 'V' || 'X' }}
           BUILD_IMAGES: ${{ needs.build_images.result }}
-          BUILD_IMAGES_ICON: ${{ needs.build_images.result == 'success' && 'V' || 'X' }}
           DEPLOY: ${{ needs.deploy.result }}
-          DEPLOY_ICON: ${{ needs.deploy.result == 'success' && 'V' || 'X' }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          REPO: ${{ github.repository }}
-          WORKFLOW: ${{ github.workflow }}
-          BRANCH: ${{ github.ref_name }}
-          EVENT: ${{ github.event_name }}
-          ACTOR: ${{ github.actor }}
