@@ -45,3 +45,16 @@ pnpm-debug.log*
 # --- Docker ---
 # Uncomment if you use a local override not meant for Git
 # docker-compose.override.yml
+
+# --- Terraform ---
+**/*.tfvars
+**/*.tfvars.json
+*.tfstate
+*.tfstate.*
+.terraform/
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
