@@ -197,23 +197,7 @@ jobs:
           K8S_REPO_TOKEN: ${{ secrets.K8S_REPO_TOKEN }}
           K8S_CHART_DIR: ${{ secrets.K8S_CHART_DIR }}
         run: |
-          set -euo pipefail
-          tmpdir=$(mktemp -d)
-          url_no_proto=${K8S_REPO_URL#https://}
-          git clone "https://x-access-token:${K8S_REPO_TOKEN}@${url_no_proto}" "$tmpdir"
-          cd "$tmpdir"
-          chart_dir="${K8S_CHART_DIR:-charts/workout-stack}"
-          if [ ! -f "${chart_dir}/Chart.yaml" ] || [ ! -f "${chart_dir}/values.yaml" ]; then
-            echo "Expected Chart.yaml/values.yaml under ${chart_dir}" >&2
-            exit 1
-          fi
-          clean="${VERSION#v}"
-          sed -i "s/^appVersion:.*/appVersion: ${clean}/" "${chart_dir}/Chart.yaml"
-          sed -i -E "s/^([[:space:]]*tag:).*/\1 ${VERSION}/" "${chart_dir}/values.yaml"
-          git config user.email "ci@github"
-          git config user.name "github-actions"
-          git commit -am "chore: bump helm chart to ${VERSION}" || exit 0
-          git push
+          bash scripts/update_helm_repo.sh
 
   # Always notify Slack with job results.
   notify:
