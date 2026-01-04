@@ -70,7 +70,7 @@ jobs:
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
         with:
-          args: detect --redact --no-git
+          args: detect --redact --no-git --config .gitleaks.toml
 
   # # Integration checks against the compose stack.
   integration:

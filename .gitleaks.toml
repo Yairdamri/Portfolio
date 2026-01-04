@@ -1,0 +1,8 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow Terraform Secret Manager ID references (not secret values)."
+regexes = [
+  '''(?i)(?:secret\s*=\s*)?(?:var\.)?[a-z0-9_]*_secret_id'''
+]
