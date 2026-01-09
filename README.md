@@ -12,7 +12,7 @@ Full-stack fitness platform demonstrating application delivery, GitOps, and infr
 - Helm charts for Kubernetes -> `k8s/`
 - ArgoCD GitOps definitions -> `argocd/`
 - Test and automation scripts -> `scripts/`, `tests/`
-- Diagrams and screenshots -> `images/`
+- Diagrams and images -> `images/`
 
 ## Overview
 
