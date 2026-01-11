@@ -2,6 +2,14 @@
 
 Full-stack fitness platform demonstrating application delivery, GitOps, and infrastructure automation.
 
+## Related Repositories
+
+This portfolio uses multiple repositories for separation of concerns:
+- `argocd`: GitOps application definitions
+- `k8s`: Helm charts for the app stack
+- `infra-gcp`: Terraform modules + Terragrunt live environments
+
+
 ## Quick Links
 
 - Backend FastAPI app -> `app/`
@@ -17,8 +25,6 @@ Full-stack fitness platform demonstrating application delivery, GitOps, and infr
 ## Overview
 
 The system generates personalized workout plans, tracks training history, and surfaces live metrics. It pairs a FastAPI backend and React frontend with MongoDB, packaged for local Docker Compose, CI/CD via GitHub Actions, image publishing to GCP Artifact Registry (GAR), GitOps releases through ArgoCD, and GKE managed with Terraform in `infra-gcp/`.
-
-<!-- Legacy note: `Jenkinsfile` and some diagrams are kept for reference from the earlier AWS/EKS version. -->
 
 ## Architectures
 ## End-to-end view of app tiers, CI/CD, GitOps, and cloud resources.
@@ -36,8 +42,7 @@ The system generates personalized workout plans, tracks training history, and su
 - Cloud Firewall Rules: network access control
 
 
-<!-- ![Legacy Jenkins pipeline](images/Pipeline.png)
-Legacy AWS/Jenkins pipeline (kept for reference). -->
+
  ## GCP K8S Architecture
 ![GCP Cluster Architecture](images/Cluster.png)
 
